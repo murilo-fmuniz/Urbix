@@ -1,0 +1,36 @@
+{
+  "indicators": [
+    {
+      "id": 1,
+      "name": "Qualidade da Água",
+      "category": "Ambiental",
+      "value": 85,
+      "target": 90,
+      "description": "Índice de qualidade da água potável"
+    },
+    {
+      "id": 2,
+      "name": "Acesso à Saúde",
+      "category": "Social",
+      "value": 70,
+      "target": 80,
+      "description": "Percentual da população com acesso a serviços de saúde"
+    },
+    {
+      "id": 3,
+      "name": "Eficiência Energética",
+      "category": "Governança",
+      "value": 60,
+      "target": 75,
+      "description": "Taxa de eficiência no consumo de energia"
+    },
+    {
+      "id": 4,
+      "name": "Mobilidade Urbana",
+      "category": "Infraestrutura",
+      "value": 65,
+      "target": 85,
+      "description": "Índice de satisfação com transporte público"
+    }
+  ]
+}
