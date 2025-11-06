@@ -8,6 +8,27 @@ O Urbix é uma ferramenta desenvolvida como parte de um projeto de Iniciação C
 
 A ISO 37100 estabelece uma terminologia padronizada e frameworks para mensurar e avaliar o desempenho das cidades em diferentes aspectos de sustentabilidade e inteligência urbana.
 
+## 📊 Funcionalidades
+
+### Indicadores Implementados
+
+O sistema atualmente processa e analisa os seguintes indicadores:
+
+- **ESPVIDA**: Expectativa de Vida (Peso: 0.2)
+- **IDHM**: Índice de Desenvolvimento Humano Municipal (Peso: 0.3)
+- **FECTOT**: Taxa de Fecundidade Total (Peso: 0.1)
+- **IDHM_R**: IDHM Renda (Peso: 0.4)
+- **IDHM_L**: IDHM Longevidade (Peso: 0.3)
+- **RAZDEP**: Razão de Dependência (Peso: 0.3)
+
+### Cálculo de Notas
+
+O sistema calcula duas notas principais:
+1. **Nota Inteligente**: Baseada em indicadores de desenvolvimento humano e qualidade de vida
+2. **Nota Sustentável**: Focada em indicadores de sustentabilidade e longevidade
+
+As notas são calculadas usando normalização min-max e pesos específicos para cada indicador.
+
 ## 🎨 Design e Paleta
 
 O projeto utiliza uma paleta "Acadêmico Minimalista" que prioriza clareza e legibilidade:
@@ -22,7 +43,9 @@ O projeto utiliza uma paleta "Acadêmico Minimalista" que prioriza clareza e leg
 ### Backend
 - FastAPI (Python)
 - Pydantic para validação de dados
-- JSON para armazenamento local
+- openpyxl para processamento de arquivos Excel
+- Logging estruturado para monitoramento
+- Sistema de normalização e cálculo de indicadores
 
 ### Frontend
 - React (com Vite)
@@ -84,7 +107,21 @@ O servidor estará rodando em `http://localhost:8000`
 
 O frontend estará disponível em `http://localhost:5173`
 
-## 📈 Pontos Futuros (A Desenvolver)
+## � API Endpoints
+
+### GET /api/indicators
+Retorna todos os indicadores com notas calculadas. Inclui:
+- Indicadores base (ESPVIDA, IDHM, etc.)
+- Notas calculadas (NOTA_INTELIGENTE, NOTA_SUSTENTAVEL)
+- Metadados (CODRM, NOME_RM, ANO)
+
+### GET /api/indicators/summary
+Fornece um resumo estatístico dos indicadores, incluindo:
+- Valores mínimos e máximos
+- Médias
+- Contagem de registros
+
+## �📈 Pontos Futuros (A Desenvolver)
 
 1. **Autenticação e Autorização**
    - Implementar sistema de login
@@ -96,7 +133,7 @@ O frontend estará disponível em `http://localhost:5173`
    - Comparação entre diferentes períodos
 
 3. **Gestão de Dados**
-   - Migrar para um banco de dados relacional
+   - Interface para atualização de indicadores
    - Sistema de backup e versionamento de dados
    - Importação/exportação de dados em diferentes formatos
 
@@ -118,3 +155,19 @@ O frontend estará disponível em `http://localhost:5173`
 7. **Internacionalização**
    - Suporte a múltiplos idiomas
    - Adaptação para diferentes padrões regionais
+
+## 📝 Logs e Monitoramento
+
+O sistema implementa logs estruturados com diferentes níveis:
+- INFO: Informações gerais de operação
+- DEBUG: Detalhes técnicos para desenvolvimento
+- WARNING: Alertas sobre problemas não críticos
+- ERROR: Erros que requerem atenção
+
+## 🤝 Contribuindo
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request

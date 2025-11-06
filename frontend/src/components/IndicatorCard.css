@@ -1,0 +1,87 @@
+.indicator-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.indicator-card h3 {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 1.2rem;
+}
+
+.indicator-card h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.category {
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.scores {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.score-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-container {
+  width: 100%;
+  height: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--accent-color);
+  transition: width 0.3s ease;
+}
+
+.progress-bar.sustainable {
+  background-color: #2E7D32;  /* Verde mais escuro para sustentabilidade */
+}
+
+.values {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.indicators-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.detail-item .label {
+  color: var(--secondary-color);
+}
+
+.detail-item .value {
+  color: var(--text-color);
+  font-weight: 500;
+}
