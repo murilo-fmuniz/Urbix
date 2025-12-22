@@ -180,6 +180,12 @@ async def get_indicators():
                                 registro[headers[idx]] = cell.value
                         else:
                             registro[headers[idx]] = None
+                
+                # Ignorar linhas sem CODRM ou sem dados numéricos relevantes
+                if not registro.get("CODRM") or registro.get("CODRM") == "None":
+                    logger.debug(f"Linha ignorada por falta de CODRM: {registro.get('NOME_RM', 'N/A')}")
+                    continue
+                    
                 dados_brutos.append(registro)
             except Exception as e:
                 logger.error(f"Erro ao processar linha: {e}")

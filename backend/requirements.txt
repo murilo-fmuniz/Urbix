@@ -1,5 +1,19 @@
+## Requirements for Urbix backend
+## NOTE: If you are using Python >=3.14 you may hit build errors for
+## pydantic-core (requires Rust/Cargo to compile). The recommended option
+## is to use Python 3.11 (or 3.10) when installing these requirements.
+##
+## - To install for Python 3.11 use: pip install -r requirements-py311.txt
+## - If you cannot change Python, install Rust (https://rustup.rs) and then
+##   run: pip install -r requirements.txt
+##
+## The file `requirements-py311.txt` contains the pinned full set tested on
+## Python 3.11. If you only need the minimal runtime to run the HTTP server
+## (no Excel parsing / analysis), use `requirements-minimal.txt`.
+
 fastapi==0.104.1
 uvicorn==0.24.0
+# pydantic requires pydantic-core which may need Rust on some Python versions
 pydantic==2.4.2
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
