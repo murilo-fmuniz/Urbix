@@ -11,11 +11,27 @@
 ## Python 3.11. If you only need the minimal runtime to run the HTTP server
 ## (no Excel parsing / analysis), use `requirements-minimal.txt`.
 
+# FastAPI and web server
 fastapi==0.104.1
 uvicorn==0.24.0
-# pydantic requires pydantic-core which may need Rust on some Python versions
+
+# Data validation
 pydantic==2.4.2
+
+# File handling
 python-multipart==0.0.6
+openpyxl==3.1.2
+
+# Authentication (optional)
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-openpyxl==3.1.2
+
+# Database - SQLAlchemy
+sqlalchemy==2.0.23
+alembic==1.12.1
+
+# HTTP requests for ETL
+requests==2.31.0
+
+# PostgreSQL support (for production)
+psycopg2-binary==2.9.9
