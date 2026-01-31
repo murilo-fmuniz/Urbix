@@ -10,24 +10,23 @@ A ISO 37100 estabelece uma terminologia padronizada e frameworks para mensurar e
 
 ## 📊 Funcionalidades
 
-### Indicadores Implementados
+### Sistema de Banco de Dados
+- **SQLAlchemy ORM**: Suporte para SQLite (desenvolvimento) e PostgreSQL (produção)
+- **Estrutura Modular**: Organização em módulos separados (models, config, database, etl, scripts)
+- **ETL Automatizado**: Integração com API do IBGE para dados de estados e municípios
+- **Sistema de Logs**: Rastreamento de sincronizações e operações
 
-O sistema atualmente processa e analisa os seguintes indicadores:
+### Dados Geográficos
+- **Estados**: Todos os 27 estados brasileiros com códigos IBGE
+- **Municípios**: Mais de 5.500 municípios com informações demográficas e geográficas
+- **Regiões**: Organização por região (Norte, Nordeste, Centro-Oeste, Sudeste, Sul)
 
-- **ESPVIDA**: Expectativa de Vida (Peso: 0.2)
-- **IDHM**: Índice de Desenvolvimento Humano Municipal (Peso: 0.3)
-- **FECTOT**: Taxa de Fecundidade Total (Peso: 0.1)
-- **IDHM_R**: IDHM Renda (Peso: 0.4)
-- **IDHM_L**: IDHM Longevidade (Peso: 0.3)
-- **RAZDEP**: Razão de Dependência (Peso: 0.3)
-
-### Cálculo de Notas
-
-O sistema calcula duas notas principais:
-1. **Nota Inteligente**: Baseada em indicadores de desenvolvimento humano e qualidade de vida
-2. **Nota Sustentável**: Focada em indicadores de sustentabilidade e longevidade
-
-As notas são calculadas usando normalização min-max e pesos específicos para cada indicador.
+### Indicadores
+Sistema extensível para múltiplos indicadores urbanos:
+- **Categorias**: Organização por categorias (Economia, Saúde, Educação, etc.)
+- **Metadados Completos**: Descrição, unidade, fonte de dados, valores-alvo
+- **Valores por Cidade**: Histórico de valores com referência temporal
+- **Qualidade de Dados**: Rastreamento da qualidade e fonte dos dados
 
 ## 🎨 Design e Paleta
 
@@ -41,17 +40,19 @@ O projeto utiliza uma paleta "Acadêmico Minimalista" que prioriza clareza e leg
 ## 🛠️ Tecnologias Utilizadas
 
 ### Backend
-- FastAPI (Python)
-- Pydantic para validação de dados
-- openpyxl para processamento de arquivos Excel
-- Logging estruturado para monitoramento
-- Sistema de normalização e cálculo de indicadores
+- **FastAPI**: Framework web moderno e de alta performance
+- **SQLAlchemy**: ORM para manipulação do banco de dados
+- **Pydantic**: Validação de dados e serialização
+- **SQLite/PostgreSQL**: Bancos de dados suportados
+- **Requests**: Integração com APIs externas (IBGE)
+- **Logging**: Sistema estruturado de logs
 
 ### Frontend
-- React (com Vite)
-- React Router para navegação
-- Axios para requisições HTTP
-- CSS Modules para estilização
+- **React 18**: Biblioteca para interfaces de usuário
+- **Vite**: Build tool e dev server ultrarrápido
+- **React Router**: Navegação entre páginas
+- **Axios**: Cliente HTTP para requisições
+- **CSS Modules**: Estilização modular e escopo local
 
 ## 🚀 Como Executar o Projeto
 
@@ -71,7 +72,7 @@ O projeto utiliza uma paleta "Acadêmico Minimalista" que prioriza clareza e leg
    ```bash
    python -m venv venv
    # Windows
-   .\\venv\\Scripts\\activate
+   .\venv\Scripts\activate
    # Linux/macOS
    source venv/bin/activate
    ```
@@ -81,12 +82,23 @@ O projeto utiliza uma paleta "Acadêmico Minimalista" que prioriza clareza e leg
    pip install -r requirements.txt
    ```
 
-4. Inicie o servidor:
+4. Inicialize o banco de dados (primeira vez):
+   ```bash
+   python -m scripts.init_database
+   ```
+   Este comando irá:
+   - Criar a estrutura do banco de dados
+   - Buscar dados de estados e municípios do IBGE
+   - Migrar indicadores existentes
+
+5. Inicie o servidor:
    ```bash
    uvicorn main:app --reload
    ```
 
 O servidor estará rodando em `http://localhost:8000`
+
+**Documentação Interativa**: Acesse `http://localhost:8000/docs` para a interface Swagger UI
 
 ### Frontend (React)
 
@@ -107,62 +119,126 @@ O servidor estará rodando em `http://localhost:8000`
 
 O frontend estará disponível em `http://localhost:5173`
 
-## � API Endpoints
+## 📍 API Endpoints
 
-### GET /api/indicators
-Retorna todos os indicadores com notas calculadas. Inclui:
-- Indicadores base (ESPVIDA, IDHM, etc.)
-- Notas calculadas (NOTA_INTELIGENTE, NOTA_SUSTENTAVEL)
-- Metadados (CODRM, NOME_RM, ANO)
+### Indicadores
+- **GET /api/indicators**: Lista todos os indicadores cadastrados
+- **GET /api/indicators/{indicator_id}**: Detalhes de um indicador específico
+- **GET /api/indicators/category/{category}**: Indicadores por categoria
 
-### GET /api/indicators/summary
-Fornece um resumo estatístico dos indicadores, incluindo:
-- Valores mínimos e máximos
-- Médias
-- Contagem de registros
+### Cidades
+- **GET /api/cities**: Lista todas as cidades (com paginação)
+- **GET /api/cities/{city_id}**: Detalhes de uma cidade
+- **GET /api/cities/search?q={query}**: Busca cidades por nome
+- **GET /api/cities/{city_id}/indicators**: Indicadores de uma cidade específica
 
-## �📈 Pontos Futuros (A Desenvolver)
+### Estados
+- **GET /api/states**: Lista todos os estados
+- **GET /api/states/{state_id}**: Detalhes de um estado
+- **GET /api/states/{state_id}/cities**: Cidades de um estado
 
-1. **Autenticação e Autorização**
-   - Implementar sistema de login
-   - Diferentes níveis de acesso (administrador, gestor, visualizador)
+**Documentação Completa**: Acesse `/docs` para a documentação interativa Swagger
 
-2. **Expansão do Dashboard**
-   - Adicionar mais tipos de visualizações (gráficos, mapas)
-   - Filtros por categoria e período
-   - Comparação entre diferentes períodos
+## 📂 Estrutura do Backend
 
-3. **Gestão de Dados**
-   - Interface para atualização de indicadores
-   - Sistema de backup e versionamento de dados
-   - Importação/exportação de dados em diferentes formatos
+```
+backend/
+├── config/           # Configurações (database)
+├── models/           # Modelos SQLAlchemy (State, City, Indicator, etc.)
+├── database/         # Operações CRUD e queries
+├── api/              # Endpoints FastAPI
+├── etl/              # Pipelines ETL (IBGE, etc.)
+├── scripts/          # Scripts utilitários (init_database, migrate_data)
+└── data/             # Banco de dados SQLite
+```
 
-4. **Melhorias na Interface**
-   - Modo escuro
-   - Responsividade para dispositivos móveis
-   - Acessibilidade (WCAG 2.1)
+**Documentação Detalhada**: Consulte [backend/README.md](backend/README.md) para mais informações sobre a arquitetura e uso dos módulos.
 
-5. **Funcionalidades Avançadas**
-   - Geração de relatórios em PDF
-   - API pública com documentação
-   - Integração com outras fontes de dados urbanos
+## 🔧 Scripts Úteis
 
-6. **Análise e Machine Learning**
-   - Previsões de tendências
-   - Identificação de padrões
-   - Recomendações automáticas
+### Backend
+```bash
+# Inicializar banco de dados do zero
+python -m scripts.init_database
 
-7. **Internacionalização**
-   - Suporte a múltiplos idiomas
-   - Adaptação para diferentes padrões regionais
+# Atualizar dados do IBGE
+python -m etl.ibge_etl
+
+# Migrar dados existentes
+python -m scripts.migrate_data
+
+# Validar estrutura do projeto
+python validate_structure.py
+
+# Executar servidor
+uvicorn main:app --reload
+```
+
+### Frontend
+```bash
+# Instalar dependências
+npm install
+
+# Desenvolvimento
+npm run dev
+
+# Build para produção
+npm run build
+
+# Preview da build
+npm run preview
+```
+
+## 📈 Roadmap
+
+### ✅ Implementado
+- [x] Estrutura modular do backend
+- [x] Integração com API do IBGE
+- [x] Sistema de banco de dados com SQLAlchemy
+- [x] ETL automatizado para estados e municípios
+- [x] API RESTful com FastAPI
+- [x] Documentação interativa (Swagger)
+- [x] Sistema de logs e sincronização
+
+### 🚧 Em Desenvolvimento
+- [ ] Interface frontend completa
+- [ ] Visualizações de dados (gráficos, mapas)
+- [ ] Integração frontend-backend completa
+
+### 📋 Planejado
+
+#### 1. Dados e Indicadores
+- Integração com mais fontes de dados (DATASUS, INEP, etc.)
+- Cálculo de índices compostos
+- Análise temporal de indicadores
+
+#### 2. Interface de Usuário
+- Dashboard interativo
+- Comparação entre cidades
+- Filtros avançados
+- Exportação de relatórios
+
+#### 3. Funcionalidades Avançadas
+- Autenticação e autorização
+- API pública com rate limiting
+- Cache de dados
+- Modo offline
+
+#### 4. Análise e Insights
+- Rankings de cidades
+- Identificação de padrões
+- Alertas e notificações
+- Previsões baseadas em ML
 
 ## 📝 Logs e Monitoramento
 
 O sistema implementa logs estruturados com diferentes níveis:
-- INFO: Informações gerais de operação
-- DEBUG: Detalhes técnicos para desenvolvimento
-- WARNING: Alertas sobre problemas não críticos
-- ERROR: Erros que requerem atenção
+- **INFO**: Informações gerais de operação
+- **DEBUG**: Detalhes técnicos para desenvolvimento
+- **WARNING**: Alertas sobre problemas não críticos
+- **ERROR**: Erros que requerem atenção
+
+Todos os logs de sincronização com APIs externas são registrados na tabela `api_sync_logs`.
 
 ## 🤝 Contribuindo
 
@@ -171,3 +247,15 @@ O sistema implementa logs estruturados com diferentes níveis:
 3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto é desenvolvido como parte de uma Iniciação Científica.
+
+## 👥 Autores
+
+Projeto de Iniciação Científica - Universidade
+
+---
+
+**Nota**: Para mais informações sobre o backend, consulte a [documentação do backend](backend/README.md).
