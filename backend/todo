@@ -1,0 +1,11 @@
+terminar migrations;
+testar endpoints;
+dados:
+*-Apucarana
+-Maringá
+-Londrina
+-São Paulo;
+*lógica de calculo dos indicadores;
+integração com front;
+listagem front;
+deploy;

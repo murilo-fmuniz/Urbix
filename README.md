@@ -4,9 +4,17 @@
 
 ## 🎯 Sobre o Projeto
 
-O Urbix é uma ferramenta desenvolvida como parte de um projeto de Iniciação Científica, focada na análise e visualização de indicadores de maturidade para Cidades Sustentáveis. O projeto utiliza como base a Norma ISO 37100, que fornece diretrizes e métricas para avaliação do desenvolvimento sustentável em comunidades urbanas.
+O Urbix é uma ferramenta desenvolvida como parte de um **projeto de Iniciação Científica**, focada na análise e visualização de indicadores de maturidade para Cidades Sustentáveis. O projeto utiliza como base a Norma ISO 37100, que fornece diretrizes e métricas para avaliação do desenvolvimento sustentável em comunidades urbanas.
 
 A ISO 37100 estabelece uma terminologia padronizada e frameworks para mensurar e avaliar o desempenho das cidades em diferentes aspectos de sustentabilidade e inteligência urbana.
+
+### Natureza do Projeto
+
+> 📚 **Projeto de Pesquisa Acadêmica**
+>
+> Este sistema foi desenvolvido em contexto acadêmico como prova de conceito para análise de indicadores urbanos. A infraestrutura está preparada para escalabilidade, mas a cobertura atual de dados reflete as limitações típicas de um projeto de Iniciação Científica: recursos limitados, acesso restrito a fontes de dados oficiais e foco em validação metodológica.
+>
+> A ampliação da cobertura para todos os municípios brasileiros demandaria recursos significativos para coleta, validação e manutenção contínua de dados de múltiplas fontes governamentais.
 
 ## 📊 Funcionalidades
 
@@ -27,6 +35,63 @@ Sistema extensível para múltiplos indicadores urbanos:
 - **Metadados Completos**: Descrição, unidade, fonte de dados, valores-alvo
 - **Valores por Cidade**: Histórico de valores com referência temporal
 - **Qualidade de Dados**: Rastreamento da qualidade e fonte dos dados
+
+#### Indicadores Trabalhados no Projeto
+
+O projeto contempla indicadores organizados segundo as normas ISO 37120, 37122 e 37123 para Cidades Sustentáveis e Inteligentes:
+
+##### ISO 37120 - Indicadores de Desenvolvimento Sustentável
+
+| Código | Indicador | Categoria | Descrição | Fonte de Dados |
+|--------|-----------|-----------|-----------|----------------|
+| **37120** | **Saúde - Leitos e Médicos** | Social | Número de leitos hospitalares e médicos por habitante | CNES/DATASUS |
+| **37120** | **Saúde - Mortalidade Infantil** | Social | Taxa de mortalidade infantil | DATASUS |
+| **37120** | **Segurança - Tempo Resposta Bombeiros** | Segurança | Tempo médio de resposta dos bombeiros | Corpo de Bombeiros |
+| **37120** | **Segurança - Homicídios/Crimes** | Segurança | Taxa de homicídios e crimes violentos | Atlas da Violência/SSP |
+
+##### ISO 37122 - Indicadores para Cidades Inteligentes
+
+| Código | Indicador | Categoria | Descrição | Fonte de Dados |
+|--------|-----------|-----------|-----------|----------------|
+| **37122-4.1** | **Contratos com Dados Abertos** | Governança | % contratos públicos em formato aberto | Portal Transparência |
+| **37122-6.2** | **Pagamentos Eletrônicos** | Economia | % pagamentos municipais aceitos eletronicamente | Prefeitura |
+| **37122-7.1** | **Computadores por Aluno** | Educação | Número de computadores por aluno na rede pública | Censo Escolar |
+| **37122-10.1** | **Visitas Portal Dados Abertos** | Governança | Número de visitas ao portal de transparência | Portal Transparência |
+| **37122-10.2** | **Serviços Online Solicitados** | Governança | % serviços municipais solicitados online | Carta de Serviços |
+| **37122-12.1** | **Coleta Lixo com Telemetria** | Ambiental | % veículos de coleta com rastreamento GPS | Limpeza Urbana |
+| **37122-15.1** | **Edifícios Verdes** | Ambiental | Número de edificações com certificação verde | IPTU Verde |
+| **37122-16.1** | **Estações Monit. Ar** | Ambiental | Número de estações de monitoramento de qualidade do ar | IAP/CETESB |
+| **37122-19.1** | **Semáforos Inteligentes** | Infraestrutura | % semáforos com controle inteligente | Trânsito Municipal |
+
+##### ISO 37123 - Indicadores para Cidades Resilientes
+
+| Código | Indicador | Categoria | Descrição | Fonte de Dados |
+|--------|-----------|-----------|-----------|----------------|
+| **37123-1.1** | **Áreas Naturais Avaliadas** | Ambiental | % áreas naturais protegidas com avaliação | Plano de Manejo |
+| **37123-2.1** | **Perda Econômica Desastres** | Resiliência | Perdas econômicas por desastres naturais | Defesa Civil/S2iD |
+| **37123-3.1** | **Propriedades com Seguro** | Resiliência | % propriedades com seguro contra desastres | SUSEP |
+| **37123-8.1** | **Escolas com Plano Emergência** | Educação | % escolas com plano de emergência implementado | Defesa Civil |
+| **37123-11.1** | **Interrupção Educacional** | Educação | Dias letivos perdidos por emergências | Secretaria Educação |
+| **37123-20/21** | **Eventos Climáticos Extremos** | Resiliência | Frequência de ondas calor/frio e enchentes | Defesa Civil/S2iD |
+| **37123-29** | **Despesas Serviços Sociais** | Social | % orçamento em serviços sociais de emergência | LOA/Assistência Social |
+
+##### Outros Indicadores
+
+| Código | Indicador | Categoria | Descrição | Fonte de Dados |
+|--------|-----------|-----------|-----------|----------------|
+| **24** | **Orçamento Manutenção Ativos** | Infraestrutura | % orçamento para manutenção de ativos públicos | LOA Municipal |
+
+> **⚠️ Nota Importante sobre Coleta de Dados**
+> 
+> Este é um **projeto de pesquisa em desenvolvimento** como parte de uma Iniciação Científica. Atualmente, a base de dados contempla um conjunto limitado de municípios com dados completos e validados. 
+>
+> Para uma **cobertura mais abrangente** dos mais de 5.500 municípios brasileiros, seria necessária uma infraestrutura robusta de coleta de dados que incluísse:
+> - Integração automatizada com múltiplas APIs governamentais (DATASUS, INEP, SNIS, etc.)
+> - Parcerias com prefeituras para acesso a dados municipais
+> - Equipe dedicada para validação e atualização periódica dos dados
+> - Infraestrutura de armazenamento e processamento escalável
+>
+> O sistema está preparado para escalar, mas a disponibilidade e qualidade dos dados públicos brasileiros ainda é um desafio significativo para pesquisas desta natureza.
 
 ## 🎨 Design e Paleta
 
@@ -208,9 +273,13 @@ npm run preview
 ### 📋 Planejado
 
 #### 1. Dados e Indicadores
-- Integração com mais fontes de dados (DATASUS, INEP, etc.)
+- Integração com mais fontes de dados (DATASUS, INEP, SNIS, etc.)
+- Expandir cobertura de municípios com dados completos e validados
+- Estabelecer parcerias com órgãos governamentais para acesso a APIs oficiais
+- Implementar sistema de validação e qualidade de dados em larga escala
 - Cálculo de índices compostos
 - Análise temporal de indicadores
+- Pipeline automatizado de atualização periódica de dados
 
 #### 2. Interface de Usuário
 - Dashboard interativo
