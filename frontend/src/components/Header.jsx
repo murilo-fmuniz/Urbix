@@ -22,6 +22,12 @@ function Header() {
             Dashboard
           </Link>
           <Link
+            to="/admin"
+            className={location.pathname === '/admin' ? 'active' : ''}
+          >
+            Admin
+          </Link>
+          <Link
             to="/about"
             className={location.pathname === '/about' ? 'active' : ''}
           >

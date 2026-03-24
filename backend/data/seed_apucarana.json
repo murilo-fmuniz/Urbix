@@ -1,0 +1,434 @@
+[
+  {
+    "codigo_indicador": "ECO.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2025,
+      "valor_numerador": 1812,
+      "valor_denominador": 69700,
+      "valor_final": 2.6,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Prefeitura de Apucarana (Dados CAGED)",
+      "fonte_url": "https://www.apucarana.pr.gov.br/site/apucarana-tem-a-menor-taxa-de-desemprego-entre-as-grandes-cidades-do-parana/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Taxa informada diretamente pela prefeitura."
+    }
+  },
+  {
+    "codigo_indicador": "ECO.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Dado sobre despesas em ativos fixos (Capex) não encontrado de forma clara e isolada no Portal da Transparência."
+    }
+  },
+  {
+    "codigo_indicador": "ECO.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": 2905,
+      "valor_denominador": 130134,
+      "valor_final": 2232.31,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Prefeitura de Apucarana",
+      "fonte_url": "https://www.apucarana.pr.gov.br/site/prefeitura-apresenta-estudo-e-busca-solucoes-estrategicas-para-acelerar-crescimento-da-economia/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "2.905 novos negócios mapeados no município."
+    }
+  },
+  {
+    "codigo_indicador": "GOV.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2020,
+      "valor_numerador": 67464,
+      "valor_denominador": 94867,
+      "valor_final": 71.11,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "TSE / G1 Eleições",
+      "fonte_url": "https://g1.globo.com/pr/norte-noroeste/eleicoes/2020/resultado-das-apuracoes/apucarana.ghtml",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Utilizado número de eleitores registrados em 2015 como base mais próxima para o cálculo."
+    }
+  },
+  {
+    "codigo_indicador": "GOV.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2025,
+      "valor_numerador": 7,
+      "valor_denominador": 7,
+      "valor_final": 100.0,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Portal de Serviços da Prefeitura",
+      "fonte_url": "https://www.apucarana.pr.gov.br/site/orgaos-da-administracao/servicos-publicos/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Todos os 7 serviços urbanos centrais mapeados são acessíveis digitalmente."
+    }
+  },
+  {
+    "codigo_indicador": "GOV.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2026,
+      "valor_numerador": 2561232,
+      "valor_denominador": 130134,
+      "valor_final": 1968149.75,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Portal da Transparência Apucarana",
+      "fonte_url": "https://apucarana.atende.net/transparencia/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Volume total de acessos reportado pelo sistema Atende.net da prefeitura."
+    }
+  },
+  {
+    "codigo_indicador": "EDU.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Dado de formandos em áreas STEM não consolidado nas fontes abertas municipais."
+    }
+  },
+  {
+    "codigo_indicador": "EDU.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Inventário de computadores/tablets nas escolas municipais não publicado abertamente."
+    }
+  },
+  {
+    "codigo_indicador": "EDU.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2025,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": 29.24,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "IPS Brasil",
+      "fonte_url": "https://ipsbrasil.org.br/ptpt/explore/dados",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Valor final baseado no índice de densidade de internet banda larga fixa do IPS. Numerador e denominador brutos não informados pela fonte."
+    }
+  },
+  {
+    "codigo_indicador": "SAU.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2025,
+      "valor_numerador": 74606,
+      "valor_denominador": 130134,
+      "valor_final": 57330.13,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Secretaria Municipal de Saúde",
+      "fonte_url": "https://www.apucarana.pr.gov.br/site/apucarana-implanta-sistema-informatizado-que-permite-agendamento-e-acompanhamento-online-de-consultas-com-medicos-especialistas/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Total de interações/consultas via sistema online no ano."
+    }
+  },
+  {
+    "codigo_indicador": "SAU.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Número total de beneficiários de planos de saúde privados no município não localizado abertamente."
+    }
+  },
+  {
+    "codigo_indicador": "SAU.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2026,
+      "valor_numerador": 2,
+      "valor_denominador": 2,
+      "valor_final": 100.0,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Mapeamento Local CNES",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Ambos os hospitais (Providência e Materno Infantil) possuem geradores de contingência."
+    }
+  },
+  {
+    "codigo_indicador": "HAB.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2022,
+      "valor_numerador": 286,
+      "valor_denominador": 130134,
+      "valor_final": 0.22,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "IBGE - Aglomerados Subnormais",
+      "fonte_url": "https://tnonline.uol.com.br/noticias/apucarana/ibge-aponta-existencia-de-favela-com-286-moradores-em-apucarana-933302",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Índice extremamente positivo (baixo déficit) comparado à média nacional."
+    }
+  },
+  {
+    "codigo_indicador": "HAB.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": 120,
+      "valor_denominador": 556.99,
+      "valor_final": 21.54,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Plataforma SIG Municipal / PNCP",
+      "fonte_url": "https://pncp.gov.br/pncp-api/v1/orgaos/75771253000168/compras/2024/300/arquivos/1",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Área correspondente à malha urbana central georreferenciada pelo município."
+    }
+  },
+  {
+    "codigo_indicador": "HAB.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2020,
+      "valor_numerador": 20,
+      "valor_denominador": 67906,
+      "valor_final": 0.03,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Infosanbas",
+      "fonte_url": "https://infosanbas.org.br/municipio/apucarana-pr/",
+      "data_extracao": "2026-03-12",
+      "observacoes": "20 domicílios avaliados sujeitos a risco iminente de inundação no relatório base."
+    }
+  },
+  {
+    "codigo_indicador": "SEG.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": 52,
+      "valor_denominador": 130134,
+      "valor_final": 39.96,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Guarda Civil Municipal",
+      "fonte_url": "https://radiowebapucaranadominio.com/noticia/1574131/guarda-municipal-civil-de-apucarana-vai-atuar-armada",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Dado considera o efetivo da Guarda Civil Municipal armada."
+    }
+  },
+  {
+    "codigo_indicador": "SEG.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": 27,
+      "valor_denominador": 130134,
+      "valor_final": 20.75,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Câmara Municipal / Segurança Pública",
+      "fonte_url": "https://www.apucarana.pr.leg.br/institucional/noticias/vereador-destaca-avancos-na-seguranca-publica-de-apucarana-durante-primeira-sessao-ordinaria",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Homicídios dolosos registrados no decorrer do ano."
+    }
+  },
+  {
+    "codigo_indicador": "SEG.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Área total de abrangência em km² das câmeras de videomonitoramento não informada publicamente."
+    }
+  },
+  {
+    "codigo_indicador": "AMB.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Dado específico sobre tonelagem de plástico gerado vs. reciclado não disponível nos diagnósticos municipais."
+    }
+  },
+  {
+    "codigo_indicador": "AMB.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Métrica de monitoramento remoto de vazamentos de água na rede local não publicada pela concessionária (Sanepar)."
+    }
+  },
+  {
+    "codigo_indicador": "AMB.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2023,
+      "valor_numerador": 3.6896,
+      "valor_denominador": 556.99,
+      "valor_final": 0.66,
+      "dado_disponivel": true
+    },
+    "auditoria": {
+      "fonte_nome": "Repositório UFPR",
+      "fonte_url": "https://acervodigital.ufpr.br/xmlui/bitstream/handle/1884/78994/R%20-%20T%20-%20JENNIFER%20VIEZZER.pdf",
+      "data_extracao": "2026-03-12",
+      "observacoes": "Área de copas restrita ao mapeamento do estudo em relação à área total do município."
+    }
+  },
+  {
+    "codigo_indicador": "RES.1",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Número de pessoas afetadas por desastres no ano não consolidado ou relatório S2iD indisponível."
+    }
+  },
+  {
+    "codigo_indicador": "RES.2",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Proporção de equipes de emergência com treinamento específico para desastres não informada pelo município."
+    }
+  },
+  {
+    "codigo_indicador": "RES.3",
+    "dados_coleta": {
+      "cidade": "Apucarana",
+      "estado": "PR",
+      "ano_referencia": 2024,
+      "valor_numerador": null,
+      "valor_denominador": null,
+      "valor_final": null,
+      "dado_disponivel": false
+    },
+    "auditoria": {
+      "fonte_nome": "Não disponível",
+      "fonte_url": null,
+      "data_extracao": "2026-03-12",
+      "observacoes": "Soma financeira de perdas e danos à infraestrutura (em relação ao PIB) por desastres não reportada."
+    }
+  }
+]

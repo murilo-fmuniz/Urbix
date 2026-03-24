@@ -1,3 +1,8 @@
+# Ambiente
+.env
+.env.local
+.env.*.local
+
 # Python
 __pycache__/
 *.py[cod]
@@ -16,62 +21,41 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual Environment
-.venv/
+# Virtual environments
 venv/
 ENV/
 env/
+.venv
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Database
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
-
-# Environment variables
-.env
-.env.local
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Jupyter Notebooks
-.ipynb_checkpoints
-
-# pytest
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
 
-# mypy
-.mypy_cache/
-.dmypy.json
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+backup_sqlite.json
 
-# Alembic (if used later)
-alembic/versions/*.pyc
+# Migrations (comentado - descomente se quiser ignorar migrations)
+# alembic/versions/
 
-# Backup files
-*.bak
-*.backup
-*~
-
-# Data files (keep structure, ignore content)
-data/*.db
-data/*.sqlite
-# Keep db.json for reference
-# data/db.json
+# Logs
+*.log
+logs/

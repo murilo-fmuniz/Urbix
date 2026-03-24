@@ -85,3 +85,62 @@ class IndicadorResponse(IndicadorBase):
     dados_coleta: List[DadosColetaResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# SCHEMAS PARA CÁLCULO DE INDICADORES
+# ==========================================
+class CityDataInput(BaseModel):
+    """
+    Modelo para receber dados brutos de uma cidade.
+    Será utilizado para calcular os indicadores ISO 37120/37122/37123.
+    """
+    nome_cidade: str
+    populacao_total: float
+    receita_propria: float
+    custo_servico_divida: float  # custo total do serviço da dívida de longo prazo
+    despesas_capital: float  # total das despesas em ativos fixos
+    despesas_operacionais: float  # total das despesas operacionais
+    despesas_totais: float  # total das despesas (operacionais + capital)
+    num_mulheres_eleitas: int
+    total_cargos_gestao: int
+    quantidade_hospitais: int = 0  # número de hospitais (opcional)
+
+
+class IndicatorValues(BaseModel):
+    """Valores calculados para os indicadores de uma cidade."""
+    taxa_endividamento: float  # %
+    despesas_capital_percentual: float  # %
+    mulheres_eleitas_percentual: float  # %
+    hospitais_por_100mil: float  # hospitais por 100 mil habitantes
+
+
+class CityIndicatorResult(BaseModel):
+    """Resultado dos indicadores calculados para uma cidade."""
+    nome_cidade: str
+    indicadores: IndicatorValues
+
+
+class TOPSISInput(BaseModel):
+    """
+    Entrada para cálculo TOPSIS.
+    Contém a matriz de decisão (cidades x indicadores),
+    pesos e impactos de cada critério.
+    """
+    cidades: List[str]
+    indicadores_nomes: List[str]
+    matriz_decisao: List[List[float]]  # cidades x indicadores
+    pesos: List[float]  # pesos para cada indicador
+    impactos: List[int]  # 1 para benefício, -1 para custo
+
+
+class CitySmartIndex(BaseModel):
+    """Índice Smart (TOPSIS) de uma cidade."""
+    nome_cidade: str
+    indice_smart: float  # valor de C_i
+
+
+class TOPSISResult(BaseModel):
+    """Resultado completo do cálculo TOPSIS."""
+    ranking: List[CitySmartIndex]  # ordenado por indice_smart descendente
+    detalhes_calculo: dict  # informações adicionais para auditoria

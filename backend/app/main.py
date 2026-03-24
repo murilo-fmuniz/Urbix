@@ -2,9 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.indicadores import indicators_router
+from app.routers.topsis import topsis_router
 from app.database import get_db
 
-app = FastAPI()
+app = FastAPI(
+    title="Urbix API",
+    description="API para cálculo de indicadores Smart Cities e análise TOPSIS",
+    version="2.0.0",
+)
 
 # ==========================================
 # CORS MIDDLEWARE
@@ -22,7 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ==========================================
+# ROUTERS
+# ==========================================
 app.include_router(indicators_router, prefix="/api/v1")
+app.include_router(topsis_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

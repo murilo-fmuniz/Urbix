@@ -1,0 +1,557 @@
+[
+  {
+    "codigo_indicador": "ECO.1",
+    "nome": "População Total",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Dados Econômicos",
+    "tipo": "Indicador",
+    "descricao": "População total do município conforme IBGE",
+    "metodologia": {
+      "desc_numerador": "População total",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "ECO.2",
+    "nome": "Área Total",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Dados do Território",
+    "tipo": "Indicador",
+    "descricao": "Área total do município em km²",
+    "metodologia": {
+      "desc_numerador": "Área total",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "km²"
+    }
+  },
+  {
+    "codigo_indicador": "ECO.3",
+    "nome": "PIB Total",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Dados Econômicos",
+    "tipo": "Indicador",
+    "descricao": "Produto Interno Bruto total do município",
+    "metodologia": {
+      "desc_numerador": "PIB",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "Reais"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.1",
+    "nome": "População Economicamente Ativa (PEA)",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Mercado de Trabalho",
+    "tipo": "Indicador",
+    "descricao": "Número de pessoas em idade de trabalhar que exercem atividade econômica",
+    "metodologia": {
+      "desc_numerador": "Força de trabalho",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.2",
+    "nome": "Desemprego",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Mercado de Trabalho",
+    "tipo": "Indicador",
+    "descricao": "Número de pessoas desempregadas no município",
+    "metodologia": {
+      "desc_numerador": "Desempregados",
+      "desc_denominador": "PEA",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.1",
+    "nome": "Eleitores Registrados",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Participação Política",
+    "tipo": "Indicador",
+    "descricao": "Total de eleitores com título registrado no TSE",
+    "metodologia": {
+      "desc_numerador": "Eleitores registrados",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.2",
+    "nome": "Comparecimento Eleitoral",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Participação Política",
+    "tipo": "Indicador",
+    "descricao": "Percentual de eleitores que compareceram à votação",
+    "metodologia": {
+      "desc_numerador": "Eleitores que votaram",
+      "desc_denominador": "Eleitores registrados",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.3",
+    "nome": "Acesso a Internet de Banda Larga",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Sociedade",
+    "eixo": "Inclusão Digital",
+    "tipo": "Indicador",
+    "descricao": "Percentual da população com acesso a internet de banda larga",
+    "metodologia": {
+      "desc_numerador": "População com internet banda larga",
+      "desc_denominador": "População total",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "SAU.1",
+    "nome": "Cobertura de Plano de Saúde Privado",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Saúde",
+    "eixo": "Cobertura de Saúde",
+    "tipo": "Indicador",
+    "descricao": "Percentual da população com plano de saúde privado",
+    "metodologia": {
+      "desc_numerador": "População com plano de saúde privado",
+      "desc_denominador": "População total",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "HAB.1",
+    "nome": "Pessoas em Moradias Inadequadas",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Habitação",
+    "eixo": "Qualidade Habitacional",
+    "tipo": "Indicador",
+    "descricao": "Número de pessoas vivendo em habitações inadequadas",
+    "metodologia": {
+      "desc_numerador": "Pessoas em moradias inadequadas",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.4",
+    "nome": "Diplomados em STEM",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Educação",
+    "eixo": "Formação Profissional",
+    "tipo": "Indicador",
+    "descricao": "Número de diplomados em Ciência, Tecnologia, Engenharia e Matemática",
+    "metodologia": {
+      "desc_numerador": "Diplomados em STEM",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.3",
+    "nome": "Despesas Totais do Município",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Finanças Municipais",
+    "tipo": "Indicador",
+    "descricao": "Total de despesas orçamentárias do município",
+    "metodologia": {
+      "desc_numerador": "Despesas totais",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "Reais"
+    }
+  },
+  {
+    "codigo_indicador": "ECO.4",
+    "nome": "Despesas em Ativos Fixos (CAPEX)",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Investimento Público",
+    "tipo": "Indicador",
+    "descricao": "Despesas em investimentos de capital (ativos fixos)",
+    "metodologia": {
+      "desc_numerador": "Despesas em ativos fixos",
+      "desc_denominador": "Despesas totais",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "ECO.5",
+    "nome": "Novos Negócios/Empresas",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Economia",
+    "eixo": "Empreendedorismo",
+    "tipo": "Indicador",
+    "descricao": "Número de novos negócios/empresas registrados no período",
+    "metodologia": {
+      "desc_numerador": "Novos negócios",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "unidades"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.4",
+    "nome": "Serviços Urbanos Oferecidos",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Serviços Públicos",
+    "tipo": "Indicador",
+    "descricao": "Total de serviços urbanos oferecidos pela prefeitura",
+    "metodologia": {
+      "desc_numerador": "Serviços urbanos",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "unidades"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.5",
+    "nome": "Serviços 100% Online",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Governo Digital",
+    "tipo": "Indicador",
+    "descricao": "Percentual de serviços totalmente disponíveis online",
+    "metodologia": {
+      "desc_numerador": "Serviços 100% online",
+      "desc_denominador": "Serviços urbanos totais",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "GOV.6",
+    "nome": "Visitas ao Portal de Dados Abertos",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Governança",
+    "eixo": "Transparência",
+    "tipo": "Indicador",
+    "descricao": "Número de acessos ao portal de dados abertos do município",
+    "metodologia": {
+      "desc_numerador": "Visitas ao portal",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "acessos"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.5",
+    "nome": "Alunos Matriculados na Rede Pública",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Educação",
+    "eixo": "Acesso à Educação",
+    "tipo": "Indicador",
+    "descricao": "Total de alunos matriculados nas escolas públicas",
+    "metodologia": {
+      "desc_numerador": "Alunos matriculados",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "EDU.6",
+    "nome": "Dispositivos Digitais nas Escolas",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Educação",
+    "eixo": "Infraestrutura Educacional",
+    "tipo": "Indicador",
+    "descricao": "Número de dispositivos digitais (computadores, tablets) nas escolas",
+    "metodologia": {
+      "desc_numerador": "Dispositivos digitais",
+      "desc_denominador": "Alunos",
+      "multiplicador": 1.0,
+      "unidade_medida": "razão"
+    }
+  },
+  {
+    "codigo_indicador": "SAU.2",
+    "nome": "Teleconsultas Realizadas",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Saúde",
+    "eixo": "Tecnologia em Saúde",
+    "tipo": "Indicador",
+    "descricao": "Número de teleconsultas realizadas no sistema de saúde municipal",
+    "metodologia": {
+      "desc_numerador": "Teleconsultas",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "consultas"
+    }
+  },
+  {
+    "codigo_indicador": "SAU.3",
+    "nome": "Total de Hospitais",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Saúde",
+    "eixo": "Infraestrutura de Saúde",
+    "tipo": "Indicador",
+    "descricao": "Número total de hospitais no município",
+    "metodologia": {
+      "desc_numerador": "Hospitais",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "unidades"
+    }
+  },
+  {
+    "codigo_indicador": "SAU.4",
+    "nome": "Hospitais com Gerador de Energia",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Saúde",
+    "eixo": "Resiliência em Saúde",
+    "tipo": "Indicador",
+    "descricao": "Número de hospitais que possuem gerador de energia de backup",
+    "metodologia": {
+      "desc_numerador": "Hospitais com gerador",
+      "desc_denominador": "Total de hospitais",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "HAB.2",
+    "nome": "Total de Edifícios/Imóveis",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Habitação",
+    "eixo": "Estoque Imobiliário",
+    "tipo": "Indicador",
+    "descricao": "Número total de edifícios/imóveis no município",
+    "metodologia": {
+      "desc_numerador": "Edifícios totais",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "unidades"
+    }
+  },
+  {
+    "codigo_indicador": "HAB.3",
+    "nome": "Edifícios Vulneráveis",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Habitação",
+    "eixo": "Vulnerabilidade",
+    "tipo": "Indicador",
+    "descricao": "Número de edifícios classificados como vulneráveis a desastres",
+    "metodologia": {
+      "desc_numerador": "Edifícios vulneráveis",
+      "desc_denominador": "Total de edifícios",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.1",
+    "nome": "Área Gerida por SIG",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Monitoramento Ambiental",
+    "tipo": "Indicador",
+    "descricao": "Área do município gerida usando Sistema de Informações Geográficas",
+    "metodologia": {
+      "desc_numerador": "Área com SIG",
+      "desc_denominador": "Área total",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "SEG.1",
+    "nome": "Efetivo Total de Policiais",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Segurança",
+    "eixo": "Recursos de Segurança",
+    "tipo": "Indicador",
+    "descricao": "Número total de policiais em atividade no município",
+    "metodologia": {
+      "desc_numerador": "Policiais",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "SEG.2",
+    "nome": "Homicídios",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Segurança",
+    "eixo": "Violência",
+    "tipo": "Indicador",
+    "descricao": "Número de homicídios registrados no período",
+    "metodologia": {
+      "desc_numerador": "Homicídios",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "ocorrências"
+    }
+  },
+  {
+    "codigo_indicador": "SEG.3",
+    "nome": "Área Coberta por Câmeras de Segurança",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Segurança",
+    "eixo": "Vigilância Urbana",
+    "tipo": "Indicador",
+    "descricao": "Percentual da área urbana coberta por câmeras de segurança",
+    "metodologia": {
+      "desc_numerador": "Área com câmeras",
+      "desc_denominador": "Área urbana",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "RES.1",
+    "nome": "Total de Equipes de Emergência",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Resiliência",
+    "eixo": "Preparação para Desastres",
+    "tipo": "Indicador",
+    "descricao": "Número de equipes de emergência/resposta a desastres",
+    "metodologia": {
+      "desc_numerador": "Equipes de emergência",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "equipes"
+    }
+  },
+  {
+    "codigo_indicador": "RES.2",
+    "nome": "Equipes com Treinamento para Desastres",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Resiliência",
+    "eixo": "Preparação para Desastres",
+    "tipo": "Indicador",
+    "descricao": "Percentual de equipes com treinamento específico para desastres",
+    "metodologia": {
+      "desc_numerador": "Equipes treinadas",
+      "desc_denominador": "Total de equipes",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "RES.3",
+    "nome": "Pessoas Evacuadas/Desalojadas",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Resiliência",
+    "eixo": "Resposta a Desastres",
+    "tipo": "Indicador",
+    "descricao": "Número de pessoas evacuadas ou desalojadas por desastres",
+    "metodologia": {
+      "desc_numerador": "Pessoas evacuadas",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "pessoas"
+    }
+  },
+  {
+    "codigo_indicador": "RES.4",
+    "nome": "Perda Financeira por Desastres",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Resiliência",
+    "eixo": "Impacto Econômico",
+    "tipo": "Indicador",
+    "descricao": "Valor total de perdas financeiras causadas por desastres",
+    "metodologia": {
+      "desc_numerador": "Perdas financeiras",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "Reais"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.2",
+    "nome": "Área Coberta por Copas de Árvores",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Vegetação Urbana",
+    "tipo": "Indicador",
+    "descricao": "Percentual da área urbana coberta por copa de árvores",
+    "metodologia": {
+      "desc_numerador": "Área com copas de árvores",
+      "desc_denominador": "Área urbana total",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.3",
+    "nome": "Volume de Água Potável Distribuído",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Recursos Hídricos",
+    "tipo": "Indicador",
+    "descricao": "Volume de água potável distribuído à população",
+    "metodologia": {
+      "desc_numerador": "Volume distribuído",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "m³"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.4",
+    "nome": "Volume de Água com Monitoramento Quality",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Recursos Hídricos",
+    "tipo": "Indicador",
+    "descricao": "Percentual do volume de água submetido a monitoramento de qualidade",
+    "metodologia": {
+      "desc_numerador": "Volume monitorado",
+      "desc_denominador": "Volume total distribuído",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.5",
+    "nome": "Plástico Gerado",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Resíduos Sólidos",
+    "tipo": "Indicador",
+    "descricao": "Volume total de plástico gerado pela população e econômia",
+    "metodologia": {
+      "desc_numerador": "Plástico gerado",
+      "desc_denominador": "N/A",
+      "multiplicador": 1.0,
+      "unidade_medida": "toneladas"
+    }
+  },
+  {
+    "codigo_indicador": "AMB.6",
+    "nome": "Plástico Reciclado",
+    "norma": "ISO 37122:2019",
+    "grande_area": "Ambiente",
+    "eixo": "Resíduos Sólidos",
+    "tipo": "Indicador",
+    "descricao": "Percentual do plástico gerado que foi reciclado",
+    "metodologia": {
+      "desc_numerador": "Plástico reciclado",
+      "desc_denominador": "Plástico gerado",
+      "multiplicador": 100.0,
+      "unidade_medida": "%"
+    }
+  }
+]

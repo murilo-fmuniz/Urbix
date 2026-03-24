@@ -1,37 +1,26 @@
-## Requirements for Urbix backend
-## NOTE: If you are using Python >=3.14 you may hit build errors for
-## pydantic-core (requires Rust/Cargo to compile). The recommended option
-## is to use Python 3.11 (or 3.10) when installing these requirements.
-##
-## - To install for Python 3.11 use: pip install -r requirements-py311.txt
-## - If you cannot change Python, install Rust (https://rustup.rs) and then
-##   run: pip install -r requirements.txt
-##
-## The file `requirements-py311.txt` contains the pinned full set tested on
-## Python 3.11. If you only need the minimal runtime to run the HTTP server
-## (no Excel parsing / analysis), use `requirements-minimal.txt`.
-
-# FastAPI and web server
+# FastAPI e ASGI
 fastapi==0.104.1
-uvicorn==0.24.0
+uvicorn[standard]==0.24.0
 
-# Data validation
-pydantic==2.4.2
-
-# File handling
-python-multipart==0.0.6
-openpyxl==3.1.2
-
-# Authentication (optional)
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-
-# Database - SQLAlchemy
+# SQLAlchemy e Banco de Dados
 sqlalchemy==2.0.23
 alembic==1.12.1
 
-# HTTP requests for ETL
-requests==2.31.0
+# Banco de Dados - SQLite (incluído no Python)
+# Banco de Dados - PostgreSQL (descomenta se usar)
+# psycopg2-binary==2.9.9
 
-# PostgreSQL support (for production)
-psycopg2-binary==2.9.9
+# Validação de dados
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Testing
+pytest==9.0.2
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Utilidades
+python-dotenv==1.0.0
+
+# Computação científica
+numpy==1.24.3
