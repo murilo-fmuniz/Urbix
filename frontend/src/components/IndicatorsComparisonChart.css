@@ -1,0 +1,100 @@
+.indicators-comparison-chart {
+  width: 100%;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  max-height: 500px;
+}
+
+/* TABELA DE VALORES */
+.indicators-table {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.indicators-table h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.indicators-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.indicators-table thead {
+  background: #f0f0f0;
+  border-bottom: 2px solid #1a73e8;
+}
+
+.indicators-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.indicators-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.indicators-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.city-name {
+  font-weight: 600;
+  color: #1a73e8;
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 1;
+}
+
+.valor {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace;
+  color: #555;
+}
+
+.no-data {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+/* RESPONSIVO */
+@media (max-width: 768px) {
+  .chart-container {
+    padding: 1rem;
+    max-height: 400px;
+  }
+
+  .indicators-table {
+    padding: 1rem;
+  }
+
+  .indicators-table th,
+  .indicators-table td {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+}

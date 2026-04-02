@@ -176,9 +176,12 @@ def calculate_topsis(topsis_input: TOPSISInput) -> TOPSISResult:
     5. Cálculo do índice smart (coeficiente de similaridade)
     6. Ranking das cidades
     
+    ⚠️  IMPORTANTE: TOPSIS requer MÍNIMO 2 alternativas (cidades) para ser válido.
+    Com apenas 1 cidade, não há comparação possível e o método perde sentido conceitual.
+    
     Args:
         topsis_input: Objeto TOPSISInput contendo:
-            - cidades: Lista de nomes de cidades
+            - cidades: Lista de nomes de cidades (MÍNIMO 2)
             - indicadores_nomes: Lista de nomes dos indicadores
             - matriz_decisao: Matriz de decisão (cidades x indicadores)
             - pesos: Pesos para cada indicador
@@ -188,8 +191,16 @@ def calculate_topsis(topsis_input: TOPSISInput) -> TOPSISResult:
         TOPSISResult: Resultado com ranking ordenado e detalhes do cálculo
     
     Raises:
-        ValueError: Se os dados de entrada forem inválidos
+        ValueError: Se os dados de entrada forem inválidos ou < 2 cidades
     """
+    # ===== VALIDAÇÃO DE NÚMERO MÍNIMO DE CIDADES =====
+    if len(topsis_input.cidades) < 2:
+        raise ValueError(
+            f"TOPSIS requer MÍNIMO 2 alternativas (cidades) para comparação. "
+            f"Recebido: {len(topsis_input.cidades)} cidade(s). "
+            f"Com apenas 1 cidade, não há base matemática para o algoritmo TOPSIS."
+        )
+    
     # Validar entrada
     if len(topsis_input.pesos) != len(topsis_input.matriz_decisao[0]):
         raise ValueError(

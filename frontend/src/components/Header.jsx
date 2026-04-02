@@ -22,6 +22,12 @@ function Header() {
             Dashboard
           </Link>
           <Link
+            to="/ranking"
+            className={location.pathname === '/ranking' ? 'active' : ''}
+          >
+            🏆 Ranking TOPSIS
+          </Link>
+          <Link
             to="/admin"
             className={location.pathname === '/admin' ? 'active' : ''}
           >

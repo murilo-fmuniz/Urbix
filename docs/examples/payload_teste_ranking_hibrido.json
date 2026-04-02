@@ -1,0 +1,32 @@
+[
+    {
+        "codigo_ibge": "3126400",
+        "nome_cidade": "Brasília",
+        "manual_indicators": {
+            "bombeiros_por_100k": 50.0,
+            "pontos_iluminacao_telegestao": 35.0,
+            "medidores_inteligentes_energia": 22.0,
+            "area_verde_mapeada": 45.0
+        }
+    },
+    {
+        "codigo_ibge": "3550308",
+        "nome_cidade": "São Paulo",
+        "manual_indicators": {
+            "bombeiros_por_100k": 42.0,
+            "pontos_iluminacao_telegestao": 28.0,
+            "medidores_inteligentes_energia": 18.0,
+            "area_verde_mapeada": 32.0
+        }
+    },
+    {
+        "codigo_ibge": "2304400",
+        "nome_cidade": "Fortaleza",
+        "manual_indicators": {
+            "bombeiros_por_100k": 38.0,
+            "pontos_iluminacao_telegestao": 0.0,
+            "medidores_inteligentes_energia": 0.0,
+            "area_verde_mapeada": 25.0
+        }
+    }
+]

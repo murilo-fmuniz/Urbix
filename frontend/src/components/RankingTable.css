@@ -1,0 +1,257 @@
+.ranking-table-container {
+  width: 100%;
+}
+
+.table-header {
+  margin-bottom: 1.5rem;
+}
+
+.table-header h3 {
+  font-size: 1.3rem;
+  margin: 0 0 0.5rem 0;
+  color: #222;
+}
+
+.table-description {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* TABLE */
+.table-responsive {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.ranking-table thead {
+  background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
+  color: white;
+}
+
+.ranking-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  border: none;
+}
+
+.ranking-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.2s;
+}
+
+.ranking-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.ranking-table td {
+  padding: 1rem;
+  border: none;
+}
+
+/* COLUMNS */
+.rank-col {
+  width: 80px;
+  text-align: center;
+}
+
+.city-col {
+  width: 30%;
+}
+
+.score-col {
+  width: 35%;
+}
+
+.status-col {
+  width: 20%;
+  text-align: center;
+}
+
+/* RANK CELL */
+.rank-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.medal {
+  font-size: 1.5rem;
+}
+
+.position {
+  font-weight: 700;
+  color: #1a73e8;
+}
+
+/* CITY CELL */
+.city-cell strong {
+  color: #1a73e8;
+  font-size: 1.05rem;
+}
+
+/* SCORE CELL */
+.score-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.score-bar-container {
+  flex: 1;
+  height: 24px;
+  background: #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 150px;
+}
+
+.score-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.score-value {
+  font-weight: 600;
+  min-width: 60px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* STATUS BADGES */
+.badge {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge-excellent {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.badge-good {
+  background: #fff9c4;
+  color: #f57f17;
+}
+
+.badge-fair {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.badge-poor {
+  background: #ffcdd2;
+  color: #b71c1c;
+}
+
+/* CALCULATION DETAILS */
+.calculation-details {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e0e0e0;
+}
+
+.calculation-details h4 {
+  font-size: 1.1rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.detail-card {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.detail-card h5 {
+  margin: 0 0 1rem 0;
+  color: #1a73e8;
+}
+
+.detail-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.detail-card li {
+  padding: 0.5rem 0;
+  color: #333;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* NO DATA */
+.no-data {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+/* RESPONSIVO */
+@media (max-width: 1024px) {
+  .score-col {
+    width: 30%;
+  }
+
+  .status-col {
+    width: 25%;
+  }
+
+  .score-bar-container {
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .rank-col {
+    width: 60px;
+  }
+
+  .city-col {
+    width: 40%;
+  }
+
+  .score-col,
+  .status-col {
+    width: 30%;
+  }
+
+  .ranking-table th,
+  .ranking-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .score-bar-container {
+    min-width: 60px;
+  }
+
+  .score-value {
+    font-size: 0.85rem;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}

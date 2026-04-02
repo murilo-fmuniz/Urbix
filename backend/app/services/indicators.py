@@ -10,6 +10,21 @@ As fórmulas utilizadas seguem padrões:
 """
 
 from app.schemas import CityDataInput, IndicatorValues
+def calculate_financial_independence(receita_propria: float, receita_total: float) -> float:
+    """
+    Calcula a Independência Financeira (% receita própria sobre total).
+    """
+    if receita_total <= 0:
+        return 0.0
+    return round((receita_propria / receita_total) * 100, 2)
+
+def calculate_gross_budget_per_capita(despesas_totais: float, populacao: float) -> float:
+    """
+    Calcula o Orçamento Bruto per capita.
+    """
+    if populacao <= 0:
+        return 0.0
+    return round(despesas_totais / populacao, 2)
 
 
 def calculate_debt_service_rate(city_data: CityDataInput) -> float:
@@ -109,33 +124,36 @@ def calculate_hospitals_per_capita(city_data: CityDataInput) -> float:
     return round(hospitais_per_capita, 2)
 
 
-def calculate_all_indicators(city_data: CityDataInput) -> IndicatorValues:
+def calculate_all_indicators(city_data: CityDataInput) -> dict:
     """
-    Calcula todos os indicadores para uma cidade.
-    
-    Função principal que executa todos os cálculos de indicadores
-    e retorna um objeto IndicatorValues estruturado.
-    
-    Args:
-        city_data: Dados brutos da cidade
-    
-    Returns:
-        IndicatorValues: Objeto com os 4 indicadores calculados
-    
-    Raises:
-        ValueError: Se algum dado de entrada for inválido
+    Calcula todos os indicadores (automáticos e híbridos) para uma cidade.
+    Retorna um dicionário com todos os valores.
     """
     try:
         taxa_endividamento = calculate_debt_service_rate(city_data)
         despesas_capital_percentual = calculate_capital_expenditure_rate(city_data)
         mulheres_eleitas_percentual = calculate_women_elected_rate(city_data)
         hospitais_por_100mil = calculate_hospitals_per_capita(city_data)
-        
-        return IndicatorValues(
-            taxa_endividamento=taxa_endividamento,
-            despesas_capital_percentual=despesas_capital_percentual,
-            mulheres_eleitas_percentual=mulheres_eleitas_percentual,
-            hospitais_por_100mil=hospitais_por_100mil,
-        )
+        independencia_financeira = calculate_financial_independence(city_data.receita_propria, city_data.receita_total)
+        orcamento_per_capita = calculate_gross_budget_per_capita(city_data.despesas_totais, city_data.populacao_total)
+
+        # Indicadores manuais (se presentes)
+        pontos_iluminacao_telegestao = getattr(city_data, 'pontos_iluminacao_telegestao', 0.0)
+        medidores_inteligentes_energia = getattr(city_data, 'medidores_inteligentes_energia', 0.0)
+        bombeiros_por_100k = getattr(city_data, 'bombeiros_por_100k', 0.0)
+        area_verde_mapeada = getattr(city_data, 'area_verde_mapeada', 0.0)
+
+        return {
+            'taxa_endividamento': taxa_endividamento,
+            'despesas_capital_percentual': despesas_capital_percentual,
+            'mulheres_eleitas_percentual': mulheres_eleitas_percentual,
+            'hospitais_por_100mil': hospitais_por_100mil,
+            'independencia_financeira': independencia_financeira,
+            'orcamento_per_capita': orcamento_per_capita,
+            'pontos_iluminacao_telegestao': pontos_iluminacao_telegestao,
+            'medidores_inteligentes_energia': medidores_inteligentes_energia,
+            'bombeiros_por_100k': bombeiros_por_100k,
+            'area_verde_mapeada': area_verde_mapeada,
+        }
     except ValueError as e:
         raise ValueError(f"Erro ao calcular indicadores: {str(e)}")

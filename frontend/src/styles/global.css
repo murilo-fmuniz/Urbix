@@ -1,3 +1,13 @@
+/* ==========================================
+   TAILWIND CSS DIRECTIVES
+   ========================================== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================
+   CUSTOM CSS VARIABLES & RESET
+   ========================================== */
 :root {
   --bg-color: #FFFFFF;
   --text-color: #222222;

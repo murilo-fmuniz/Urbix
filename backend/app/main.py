@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.indicadores import indicators_router
 from app.routers.topsis import topsis_router
+from app.routers.manual_data import manual_data_router
 from app.database import get_db
 
 app = FastAPI(
@@ -32,6 +33,7 @@ app.add_middleware(
 # ==========================================
 app.include_router(indicators_router, prefix="/api/v1")
 app.include_router(topsis_router, prefix="/api/v1")
+app.include_router(manual_data_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")
