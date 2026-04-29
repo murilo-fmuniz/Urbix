@@ -9,8 +9,8 @@ from datetime import datetime, date
 class ISO37120Indicators(BaseModel):
     """ISO 37120 - Indicadores de Cidades Sustentáveis e Resilientes
     
-    Cobre: Economia e Finanças, Governança, Habitação, Segurança, Saúde, etc.
-    Total de 16 indicadores
+    Cobre: Economia e Finanças, Governança, Habitação, Segurança, Saúde, Educação, etc.
+    Total de 18 indicadores (16 originais + 2 educacionais do INEP)
     """
     # Economia e Finanças (5 indicadores)
     taxa_desemprego_pct: float = Field(default=0.0, description="Taxa de desemprego (%)")
@@ -30,13 +30,16 @@ class ISO37120Indicators(BaseModel):
     agentes_policia_100k: float = Field(default=0.0, description="Agentes de polícia por 100k hab")
     homicidios_100k: float = Field(default=0.0, description="Homicídios por 100k habitantes")
     acidentes_industriais_100k: float = Field(default=0.0, description="Acidentes industriais por 100k hab")
+    # Educação (INEP) (2 indicadores)
+    relacao_estudante_professor: float = Field(default=0.0, description="Relação estudante/professor (alunos por professor)")
+    ideb_anos_iniciais: float = Field(default=0.0, description="IDEB Anos Iniciais (escala 0-10)")
 
 
 class ISO37122Indicators(BaseModel):
     """ISO 37122 - Indicadores de Cidades Inteligentes (Smart Cities)
     
     Cobre: Economia smart, Educação, Energia, Ambiente, Saúde, Infraestrutura, Mobilidade
-    Total de 15 indicadores
+    Total de 16 indicadores (15 originais + 1 educacional do INEP)
     """
     # Economia Smart e Educação (3 indicadores)
     sobrevivencia_novos_negocios_100k: float = Field(default=0.0, description="Novos negócios vigentes por 100k hab")
@@ -58,6 +61,8 @@ class ISO37122Indicators(BaseModel):
     lixeiras_sensores_pct: float = Field(default=0.0, description="Lixeiras com sensores (%)")
     semaforos_inteligentes_pct: float = Field(default=0.0, description="Semáforos inteligentes (%)")
     frota_onibus_limpos_pct: float = Field(default=0.0, description="Frota de ônibus zero emissão (%)")
+    # Educação Smart (INEP) (1 indicador)
+    escolas_conectadas_pct: float = Field(default=0.0, description="Escolas com banda larga e telegestão (%)")
 
 
 class ISO37123AndSendaiIndicators(BaseModel):

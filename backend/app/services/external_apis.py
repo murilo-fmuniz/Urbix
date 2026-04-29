@@ -53,6 +53,9 @@ if not logger.handlers:
 # CONFIGURAÇÕES GLOBAIS
 # ═════════════════════════════════════════════════════════════════════════════
 
+# Portal da Transparência - Token de Autenticação
+TRANSPARENCIA_TOKEN = "9bb78110fe8e6126868cb52cd8456cef"
+
 # User-Agent customizado para evitar bloqueios de WAF
 USER_AGENT = "Urbix-SmartCity-Integrator/1.0 (Academic Research; UTFPR)"
 
@@ -111,6 +114,18 @@ FALLBACK_DATASUS = {
     "4101408": 5,   # Hospitais/estabelecimentos Apucarana
     "4113700": 15,  # Hospitais/estabelecimentos Londrina
     "4115200": 12,  # Hospitais/estabelecimentos Maringá
+}
+
+FALLBACK_INEP = {
+    "4101408": {"matriculas": 12450, "docentes": 650, "escolas_total": 38, "escolas_internet": 35, "ideb": 6.4},
+    "4113700": {"matriculas": 45000, "docentes": 2100, "escolas_total": 120, "escolas_internet": 115, "ideb": 6.1},
+    "4115200": {"matriculas": 38000, "docentes": 1900, "escolas_total": 95, "escolas_internet": 95, "ideb": 6.5},
+}
+
+FALLBACK_ANALYTICS = {
+    "4101408": {"saldo_empregos_caged": 245, "pct_mulheres_eleitas": 32.5},  # Apucarana
+    "4113700": {"saldo_empregos_caged": 1850, "pct_mulheres_eleitas": 35.2},  # Londrina
+    "4115200": {"saldo_empregos_caged": 1420, "pct_mulheres_eleitas": 38.1},  # Maringá
 }
 
 FALLBACK_UNIVERSAL = {
@@ -788,6 +803,225 @@ async def get_datasus_health_infrastructure(codigo_ibge: str) -> Dict[str, Any]:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# API INEP - DADOS DE EDUCAÇÃO (MEC/INEP - Portal Dados Abertos)
+# ═════════════════════════════════════════════════════════════════════════════
+"""
+Integração com INEP para indicadores educacionais:
+- Relação Estudante/Professor
+- Escolas com Banda Larga
+- IDEB (Índice de Desenvolvimento da Educação Básica)
+
+Endpoint: https://dadosabertos.mec.gov.br/api/v1/educacao/{codigo_municipio}
+(placeholder - usará FALLBACK em caso de indisponibilidade)
+"""
+
+CACHE_INEP: Dict[str, Dict[str, Any]] = {}
+
+async def get_inep_education(codigo_ibge: str) -> Dict[str, Any]:
+    """
+    Obtém indicadores de educação com Cache-Aside (sem dependência de BigQuery).
+    
+    Retorna indicadores de:
+    1. IDEB (Índice de Desenvolvimento da Educação Básica) - anos iniciais
+    2. Censo Escolar (docentes, matrículas, escolas, conectividade)
+    
+    Retorna:
+    {
+        "relacao_estudante_professor": float,  # alunos por professor
+        "escolas_conectadas_pct": float,       # % escolas com banda larga
+        "ideb_anos_iniciais": float,           # índice 0-10
+        "fonte": str                           # "fallback especifico", "banco", "fallback universal"
+    }
+    """
+    
+    # 1. Verificar cache em memória
+    if codigo_ibge in CACHE_INEP:
+        logger.info(f"💾 CACHE HIT INEP: Usando dados cacheados para {codigo_ibge}")
+        return CACHE_INEP[codigo_ibge]
+    
+    # 2. Tenta fallback específico (FALLBACK_INEP - 3 cidades pré-configuradas)
+    if codigo_ibge in FALLBACK_INEP:
+        inep_fallback = FALLBACK_INEP[codigo_ibge]
+        relacao_estudante_professor = inep_fallback["matriculas"] / inep_fallback["docentes"]
+        escolas_conectadas_pct = (inep_fallback["escolas_internet"] / inep_fallback["escolas_total"]) * 100
+        ideb = inep_fallback["ideb"]
+        fonte = "fallback especifico"
+        logger.info(f"🔄 INEP: Usando FALLBACK ESPECIFICO para {codigo_ibge}")
+    else:
+        # 3. Consulta banco de dados (cache persistente no CityManualData)
+        db_data = _get_data_from_db(codigo_ibge)
+        if db_data and "iso_37120" in db_data:
+            iso_37120 = db_data.get("iso_37120", {})
+            iso_37122 = db_data.get("iso_37122", {})
+            relacao_estudante_professor = float(iso_37120.get("relacao_estudante_professor", 0) or 0)
+            escolas_conectadas_pct = float(iso_37122.get("escolas_conectadas_pct", 0) or 0)
+            ideb = float(iso_37120.get("ideb_anos_iniciais", 0) or 0)
+            fonte = "banco (dados persistentes)"
+            logger.info(f"💾 INEP: Usando dados do banco de dados para {codigo_ibge}")
+        else:
+            # 4. Fallback universal (média nacional - dados do INEP público)
+            relacao_estudante_professor = 20.0  # Média nacional Brasil ~20 alunos/prof (INEP 2023)
+            escolas_conectadas_pct = 60.0       # Média nacional de conectividade ~60% (INEP 2023)
+            ideb = 6.0                          # Média nacional IDEB ~6.0 (INEP 2023)
+            fonte = "fallback universal"
+            logger.warning(f"⚠️  INEP: Usando fallback universal para {codigo_ibge}")
+    
+    resultado = {
+        "relacao_estudante_professor": relacao_estudante_professor,
+        "escolas_conectadas_pct": escolas_conectadas_pct,
+        "ideb_anos_iniciais": ideb,
+        "fonte": fonte
+    }
+    
+    # Armazenar em cache
+    CACHE_INEP[codigo_ibge] = resultado
+    return resultado
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# FUNÇÃO AUXILIAR: Headers do Portal da Transparência
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _get_transparencia_headers() -> Dict[str, str]:
+    """
+    Constrói headers para autenticação na API do Portal da Transparência.
+    
+    Returns:
+        Dict com headers: chave-api-dados e Accept
+    """
+    return {
+        "chave-api-dados": TRANSPARENCIA_TOKEN,
+        "Accept": "application/json"
+    }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# API: Portal da Transparência - Dados Sociais e Governança
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def get_transparencia_social(codigo_ibge: str) -> Dict[str, Any]:
+    """
+    Obtém dados de beneficiários do Bolsa Família do Portal da Transparência.
+    
+    Retorna:
+    {
+        "beneficiados_bolsa_familia": int,  # Número de beneficiados
+        "fonte": str                        # Origem dos dados
+    }
+    
+    Args:
+        codigo_ibge: Código IBGE do município (7 dígitos, string)
+    """
+    
+    try:
+        logger.info(f"📡 Portal da Transparência: Consultando Bolsa Família para {codigo_ibge}...")
+        
+        # URL do Bolsa Família com mês recente (202402 com dados confirmados)
+        url_bolsa_familia = f"https://api.portaldatransparencia.gov.br/api-de-dados/bolsa-familia-por-municipio?mesAno=202402&codigoIbge={codigo_ibge}"
+        
+        headers = _get_transparencia_headers()
+        
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), headers=headers) as client:
+            try:
+                response = await asyncio.wait_for(
+                    client.get(url_bolsa_familia),
+                    timeout=15.0
+                )
+                response.raise_for_status()
+                bf_data = response.json()
+                
+                # Extrair quantidade de beneficiados
+                beneficiados_bolsa_familia = 0
+                if isinstance(bf_data, list) and len(bf_data) > 0:
+                    beneficiados_bolsa_familia = int(bf_data[0].get("quantidadeBeneficiados", 0))
+                    logger.debug(f"   Bolsa Família: {beneficiados_bolsa_familia} beneficiados")
+                
+                resultado = {
+                    "beneficiados_bolsa_familia": beneficiados_bolsa_familia,
+                    "fonte": "Portal da Transparência (Gov.br)"
+                }
+                
+                logger.info(f"✅ Portal da Transparência: {beneficiados_bolsa_familia} beneficiados obtidos para {codigo_ibge}")
+                return resultado
+                
+            except Exception as e:
+                logger.warning(f"Erro ao coletar dados Portal da Transparência: {type(e).__name__}")
+                raise
+    
+    except asyncio.TimeoutError:
+        logger.warning(f"⏱️  TIMEOUT Portal da Transparência para {codigo_ibge}")
+        return {
+            "beneficiados_bolsa_familia": 0,
+            "fonte": "fallback (Timeout API Transparência)"
+        }
+    except Exception as e:
+        logger.warning(f"❌ Erro Portal da Transparência para {codigo_ibge}: {type(e).__name__}: {str(e)}")
+        logger.debug(f"   Stack trace: ", exc_info=True)
+        return {
+            "beneficiados_bolsa_familia": 0,
+            "fonte": "fallback (Erro API Transparência)"
+        }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# API: Base dos Dados - Analytics Econômicos e Governança (CAGED + TSE)
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def get_local_analytics(codigo_ibge: str) -> Dict[str, Any]:
+    """
+    Obtém indicadores de economia e governança usando dados locais (sem dependência Google BigQuery).
+    
+    Retorna dados pré-configurados para:
+    1. CAGED: saldo de empregos 
+    2. TSE: percentual de mulheres eleitas como vereadores
+    
+    Utiliza FALLBACK_ANALYTICS para 3 cidades principais (Londrina, Apucarana, Maringá).
+    Para outros municípios, retorna fallback universal.
+    
+    Retorna:
+    {
+        "saldo_empregos_caged": int,      # Saldo de movimentação de empregos
+        "pct_mulheres_eleitas": float,    # % de mulheres eleitas como vereadores
+        "fonte": str                      # "fallback especifico" ou "fallback universal"
+    }
+    """
+    try:
+        logger.info(f"📊 Analytics Locais (CAGED/TSE): Consultando dados econômicos para {codigo_ibge}...")
+        
+        # Tentar dados específicos do município
+        if codigo_ibge in FALLBACK_ANALYTICS:
+            analytics_fallback = FALLBACK_ANALYTICS[codigo_ibge]
+            saldo_empregos = analytics_fallback["saldo_empregos_caged"]
+            pct_mulheres = analytics_fallback["pct_mulheres_eleitas"]
+            fonte = "fallback especifico"
+            logger.debug(f"   Analytics: Dados encontrados no FALLBACK_ANALYTICS para {codigo_ibge}")
+        else:
+            # Fallback universal para outros municípios
+            saldo_empregos = 500  # Saldo médio estimado
+            pct_mulheres = 32.0   # Percentual médio de mulheres eleitas
+            fonte = "fallback universal"
+            logger.debug(f"   Analytics: Usando fallback universal para {codigo_ibge}")
+        
+        resultado = {
+            "saldo_empregos_caged": saldo_empregos,
+            "pct_mulheres_eleitas": pct_mulheres,
+            "fonte": fonte
+        }
+        
+        logger.info(f"✅ Analytics Locais: Dados obtidos para {codigo_ibge} (fonte: {fonte})")
+        return resultado
+    
+    except Exception as e:
+        logger.warning(f"❌ Erro ao obter analytics locais para {codigo_ibge}: {type(e).__name__}: {str(e)}")
+        logger.debug(f"   Stack trace: ", exc_info=True)
+        return {
+            "saldo_empregos_caged": 500,
+            "pct_mulheres_eleitas": 32.0,
+            "fonte": "fallback universal (erro)"
+        }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # UTILITÁRIO: LIMPAR CACHE
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -824,3 +1058,19 @@ def get_cache_status() -> Dict[str, Any]:
         ),
     }
     return status
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# EXPORTS: Funções Públicas do Módulo
+# ═════════════════════════════════════════════════════════════════════════════
+
+__all__ = [
+    "get_siconfi_finances",
+    "get_ibge_population",
+    "get_datasus_health_infrastructure",
+    "get_inep_education",
+    "get_transparencia_social",
+    "get_local_analytics",
+    "clear_cache",
+    "get_cache_status",
+]

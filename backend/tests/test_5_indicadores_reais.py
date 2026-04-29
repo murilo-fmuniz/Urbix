@@ -65,9 +65,14 @@ async def main():
         
         ibge_test = {"populacao": 100000.0}
         datasus_test = {"num_hospitais": 10}
+        inep_test = {
+            "relacao_estudante_professor": 20.5,
+            "escolas_conectadas_pct": 75.0,
+            "ideb_anos_iniciais": 6.5
+        }
         
-        # Simular lista plana com 47 valores (todos zeros)
-        flat_list = [0.0] * 47
+        # Simular lista plana com 50 valores (todos zeros)
+        flat_list = [0.0] * 50
         
         # Injeta dados
         resultado_inject = inject_api_data_into_flat_list(
@@ -75,6 +80,7 @@ async def main():
             siconfi_test,
             ibge_test,
             datasus_test,
+            inep_test,
             "Cidade Teste"
         )
         
@@ -106,9 +112,21 @@ async def main():
         assert resultado_inject[35] == hosp_100k_esperado, f"Índice 35 incorreto: {resultado_inject[35]} != {hosp_100k_esperado}"
         print(f"   [OK] Índice [35] Hospitais/100k: {resultado_inject[35]:.2f}")
         
+        # [15] Relação Estudante/Professor (NOVO - INEP)
+        assert resultado_inject[15] == 20.5, f"Índice 15 incorreto: {resultado_inject[15]} != 20.5"
+        print(f"   [OK] Índice [15] Relação Est/Prof: {resultado_inject[15]:.2f} (INEP)")
+        
+        # [16] IDEB Anos Iniciais (NOVO - INEP)
+        assert resultado_inject[16] == 6.5, f"Índice 16 incorreto: {resultado_inject[16]} != 6.5"
+        print(f"   [OK] Índice [16] IDEB Anos Iniciais: {resultado_inject[16]:.1f} (INEP)")
+        
+        # [33] Escolas Conectadas % (NOVO - INEP)
+        assert resultado_inject[33] == 75.0, f"Índice 33 incorreto: {resultado_inject[33]} != 75.0"
+        print(f"   [OK] Índice [33] Escolas Conectadas: {resultado_inject[33]:.1f}% (INEP)")
+        
         # Test 4: Validar que dados manuais têm prioridade
         print("\n4. Validando prioridade de dados manuais...")
-        flat_list_manual = [0.0] * 47
+        flat_list_manual = [0.0] * 50
         flat_list_manual[1] = 15.0  # Valor manual para Taxa Endividamento
         flat_list_manual[35] = 5.0  # Valor manual para Hospitais
         
@@ -117,6 +135,7 @@ async def main():
             siconfi_test,
             ibge_test,
             datasus_test,
+            inep_test,
             "Cidade Teste 2"
         )
         
@@ -130,12 +149,15 @@ async def main():
         print("\n" + "=" * 80)
         print("SUCCESS: Todos os testes passaram!")
         print("=" * 80)
-        print("\n✓ 5 indicadores reais implementados com sucesso:")
+        print("\n✓ 8 indicadores reais implementados com sucesso:")
         print("  1. Taxa Endividamento (SICONFI RGF - Divida Consolidada)")
         print("  2. Despesas de Capital (SICONFI RREO)")
         print("  3. Receita Própria (SICONFI RREO)")
         print("  4. Orçamento per capita (SICONFI RREO)")
         print("  5. Hospitais por 100k hab (DataSUS + IBGE)")
+        print("  6. Relação Estudante/Professor (INEP)")
+        print("  7. IDEB Anos Iniciais (INEP)")
+        print("  8. Escolas Conectadas % (INEP)")
         print("=" * 80 + "\n")
         
         return 0

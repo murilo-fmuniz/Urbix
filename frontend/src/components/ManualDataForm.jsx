@@ -48,6 +48,9 @@ const INDICADORES_CONFIG = {
       { key: "agentes_policia_100k", label: "Agentes de Polícia", unidade: "/100k hab", tipo: "number", min: 0 },
       { key: "homicidios_100k", label: "Homicídios", unidade: "/100k hab", tipo: "number", min: 0 },
       { key: "acidentes_industriais_100k", label: "Acidentes Industriais", unidade: "/100k hab", tipo: "number", min: 0 },
+      // INEP - Educação (2 campos novos)
+      { key: "relacao_estudante_professor", label: "Relação Estudante/Professor", unidade: "alunos/prof", tipo: "number", min: 0, max: 100 },
+      { key: "ideb_anos_iniciais", label: "IDEB Anos Iniciais (0-10)", unidade: "escala 0-10", tipo: "number", min: 0, max: 10 },
     ]
   },
   iso_37122: {
@@ -76,6 +79,8 @@ const INDICADORES_CONFIG = {
       { key: "lixeiras_sensores_pct", label: "Lixeiras com Sensores", unidade: "%", tipo: "number", min: 0, max: 100 },
       { key: "semaforos_inteligentes_pct", label: "Semáforos Inteligentes", unidade: "%", tipo: "number", min: 0, max: 100 },
       { key: "frota_onibus_limpos_pct", label: "Frota de Ônibus Zero Emissão", unidade: "%", tipo: "number", min: 0, max: 100 },
+      // INEP - Educação (1 campo novo)
+      { key: "escolas_conectadas_pct", label: "Escolas com Internet/Telegestão", unidade: "%", tipo: "number", min: 0, max: 100 },
     ]
   },
   iso_37123: {
