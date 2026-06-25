@@ -6,18 +6,19 @@ A plataforma integra dados governamentais em tempo real com coletas manuais, anc
 
 ---
 
-## 📊 STATUS PHASE 1 (Completo - 30/04/2026)
+## 📊 Status atual do projeto
 
 | Métrica | Resultado |
 |---------|-----------|
-| **Erro 502 Bad Gateway** | ✅ Corrigido (Assertion 47→50) |
-| **APIs Operacionais** | ✅ 3 integradas (SICONFI, TSE, INEP) |
-| **Indicadores com Dados Reais** | ✅ 8/50 (16%) - SICONFI 3, TSE 2, INEP 3 |
-| **Municípios Mapeados** | ✅ 31 cidades com cobertura consistente |
-| **Testes** | ✅ 52 testes - 100% PASS |
-| **Target Phase 2** | 🎯 25-30% (DataSUS + Painel Admin) |
+| **Erro 502 Bad Gateway** | ✅ Corrigido |
+| **APIs Operacionais** | ✅ 3 integradas (SICONFI, TSE, INEP) + fallbacks resilientes |
+| **Indicadores disponíveis** | ✅ 50 no total (47 ISO + 3 educacionais/INEP) |
+| **Admin page CRUD** | ✅ Criada e integrada ao banco |
+| **Séries históricas** | ✅ Rankings e indicadores persistidos em snapshots |
+| **Cidade de teste** | ✅ UTFPRCity (9999999) seedada para validação |
+| **Testes** | ✅ Validação manual e build do frontend aprovados |
 
-📖 **Documentação Completa:** [PHASE1_COMPLETION_REPORT.md](docs/PHASE1_COMPLETION_REPORT.md)
+📖 **Documentação completa:** veja os relatórios em `docs/reports/`.
 
 ---
 
@@ -25,7 +26,7 @@ A plataforma integra dados governamentais em tempo real com coletas manuais, anc
 
 * 🔄 **Ciclo de Persistência 4-Tier** — Dados de cidades já processadas permanecem em cache local para rápido acesso
 * 🛡️ **Resiliência Automática** — Fallback automático quando APIs governamentais falham
-* 📊 **47 Indicadores ISO** — Cobertura completa das normas internacionais de cidades inteligentes
+* 📊 **50 Indicadores** — 47 indicadores ISO + 3 campos educacionais adicionais usados na consolidação atual
 * 🚀 **Motor TOPSIS de Alta Performance** — Ranking multicritério baseado em rigor científico
 * 🔍 **Debug em Tempo Real** — Endpoint `/debug-apis` para diagnosticar coleta de dados
 * 📈 **Snapshots Históricos** — Persistência de rankings para análise temporal
@@ -55,12 +56,12 @@ Requisição de Ranking
         ✅ GARANTIDO nunca retornar zero
 ```
 
-**Benefício:** Uma vez que uma cidade é processada, seus dados reais ficam "eternizados" no banco local, garantindo que futuras falhas de API não resultem em perda de informação. O sistema recupera dados de origens mais confiáveis ANTES de recorrer a médias nacionais.
+**Benefício:** Uma vez que uma cidade é processada, seus dados reais ficam persistidos no banco local, garantindo que futuras falhas de API não resultem em perda de informação. O sistema recupera dados de origens mais confiáveis ANTES de recorrer a médias nacionais.
 
 ### 🧠 Rigor Metodológico (Motor TOPSIS)
 O algoritmo de ranqueamento foi construído com rigor científico para lidar com dados do mundo real:
-* **Mapeamento de Impacto:** O sistema compreende a polaridade de 47 indicadores distintos (ex: Receita Própria é um benefício [+1], Taxa de Desemprego é um custo [-1]).
-* **Imputação pela Média (*Mean Imputation*):** Para evitar distorções no ranqueamento causadas por municípios com dados faltantes, a matriz de decisão aplica a média dos dados reais das demais cidades na composição do cenário ideal, mantendo a validade matemática da avaliação multicritério.
+* **Mapeamento de Impacto:** O sistema compreende a polaridade de 50 indicadores distintos (ex: Receita Própria é um benefício [+1], Taxa de Desemprego é um custo [-1]).
+* **Preservação da matriz original:** o TOPSIS trabalha com a matriz recebida, sem imputação pela média na comparação, evitando achatar diferenças entre cidades com muitos fallbacks.
 * **Rastreamento de Fonte:** Cada dado retornado identifica sua origem (API, Banco, Fallback), permitindo auditoria completa da cadeia de dados.
 
 ---
@@ -87,7 +88,7 @@ O algoritmo de ranqueamento foi construído com rigor científico para lidar com
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como executar o projeto
 
 ### 1. Iniciando o Backend
 O backend requer Python 3.9+ e utiliza um ambiente virtual.
@@ -106,7 +107,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Inicie o servidor FastAPI
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 A documentação interativa da API estará disponível em: `http://localhost:8000/docs`
 
@@ -122,7 +123,42 @@ Acesse a aplicação em: `http://localhost:5173`
 
 ---
 
-## � Diagnóstico de Coleta de Dados (Debug Endpoint)
+## 🔎 Endpoints úteis para demo e Postman
+
+### Séries históricas e ranking
+
+* `GET /api/v1/manual-data/rankings/historico?limit=24` — ranking TOPSIS histórico
+* `GET /api/v1/manual-data/rankings/periodo/{periodo_referencia}` — ranking por período (`YYYY-MM`)
+* `GET /api/v1/manual-data/{codigo_ibge}/indicadores/historico?limit=52` — histórico de indicadores por cidade
+* `GET /api/v1/topsis/snapshots/{codigo_ibge}` — snapshots históricos do TOPSIS por cidade
+
+### TOPSIS e diagnóstico
+
+* `POST /api/v1/topsis/ranking-hibrido` — ranking híbrido com dados reais + manuais
+* `GET /api/v1/topsis/cities` — lista de cidades disponíveis no ranking
+* `GET /api/v1/topsis/indicators` — lista dos 50 indicadores utilizados
+* `GET /api/v1/topsis/debug-apis/{codigo_ibge}` — diagnóstico das APIs externas por cidade
+
+### CRUD de dados manuais
+
+* `GET /api/v1/manual-data/{codigo_ibge}`
+* `POST /api/v1/manual-data/{codigo_ibge}`
+* `PATCH /api/v1/manual-data/{codigo_ibge}`
+* `DELETE /api/v1/manual-data/{codigo_ibge}`
+* `GET /api/v1/manual-data/{codigo_ibge}/history`
+
+### Dados locais
+
+* `GET /api/v1/municipio/{city_id}`
+* `GET /api/v1/municipio/{city_id}/indicadores`
+* `GET /api/v1/municipio/{city_id}/nome`
+* `GET /api/v1/municipio/s`
+* `GET /api/v1/municipio/cache/info`
+* `GET /api/v1/municipio/health`
+
+---
+
+## 🔎 Diagnóstico de coleta de dados
 
 Para debugar e monitorar em tempo real o status das APIs governamentais e o ciclo de persistência, utilize o endpoint de diagnóstico:
 
@@ -170,21 +206,22 @@ curl -X GET "http://localhost:8000/api/v1/topsis/debug-apis/4106902"
 
 ---
 
-## �📂 Estrutura Principal do Repositório
+## 📂 Estrutura Principal do Repositório
 
-* `/backend/routers/topsis.py`: Núcleo do motor matemático, agregação de dados e cálculo multicritério.
-* `/backend/routers/manual_data.py`: Gerenciamento "flat" e veloz dos 47 indicadores ISO reportados pelas prefeituras.
+* `/backend/app/routers/topsis.py`: Núcleo do motor matemático, agregação de dados, ranking TOPSIS e snapshots históricos.
+* `/backend/app/routers/manual_data.py`: CRUD dos dados manuais, histórico de alterações e séries históricas.
 * `/backend/app/services/external_apis.py`: Coleta assíncrona de dados (IBGE, SICONFI, DataSUS) com sistema de retry robusto (Tenacity) e 4-tier fallback.
 * `/backend/app/models.py`: Modelos SQLAlchemy para persistência (CityManualData, RankingSnapshot, etc).
-* `/frontend/src/components/ManualDataForm.jsx`: Interface dinâmica de mapeamento das normas ISO.
-* `/frontend/src/components/SmartCityDashboard.jsx`: Painel de visualização e envio dos *payloads* híbridos.
+* `/frontend/src/components/ManualDataForm.jsx`: Interface dinâmica para cadastro dos 47 campos ISO.
+* `/frontend/src/pages/AdminCidadesPage.jsx`: Página administrativa com presets, CRUD e ajuda em modal.
+* `/frontend/src/pages/RankingPage.jsx`: Envio dos *payloads* híbridos e exibição do ranking.
 * `/docs`: Documentação complementar, histórico de implementação e exemplos de integração.
 
 ---
 
-## 🌐 Coleta de Dados Governamentais (Phase 1 ✅)
+## 🌐 Coleta de dados governamentais
 
-O Urbix integra múltiplas fontes oficiais com **resiliência automática**: quando uma API não disponibiliza dados, o sistema recorre a fallbacks estaduais/nacionais pré-calibrados.
+O Urbix integra múltiplas fontes oficiais com **resiliência automática**: quando uma API não disponibiliza dados, o sistema recorre a fallbacks estaduais/nacionais pré-calibrados e, quando necessário, ao banco local.
 
 ### ✅ SICONFI - Tesouro Nacional (Finanças Municipais)
 * **Endpoint:** https://apidatalake.tesouro.gov.br/ords/siconfi
@@ -206,14 +243,14 @@ O Urbix integra múltiplas fontes oficiais com **resiliência automática**: qua
 * **Status:** Operacional com fallback automático
 
 ### ⚠️ DataSUS CNES (Infraestrutura de Saúde)
-* **Status:** Em desenvolvimento (não retorna dados municipais específicos)
-* **Target Phase 2:** Integração de imunização, hospitais, doenças
+* **Status:** Parcialmente integrado com fallbacks e expansão local
+* **Target:** ampliar cobertura de imunização, hospitais e desfechos de saúde
 
 ### ⚠️ Portal da Transparência (Programas Sociais)
-* **Status:** Em desenvolvimento (cobertura incompleta)
-* **Target Phase 2:** Integração de Bolsa Família, programas sociais
+* **Status:** Parcialmente integrado com fallback e cache local
+* **Target:** ampliar integração de programas sociais e cobertura municipal
 
-**📊 Cobertura Atual:** 8/50 indicadores (16%) com dados reais | **Target Phase 2:** 25-30%  
+**📊 Cobertura atual:** varia por município e disponibilidade de API/fallback | **Target:** aumentar cobertura com novas fontes e ETL local  
 **🛡️ Garantia:** Se API falha, sistema retorna fallback automático. Zero dados perdidos.
 
 ---
@@ -242,7 +279,8 @@ O Urbix integra múltiplas fontes oficiais com **resiliência automática**: qua
 
 * [DEBUG_APIS_ENDPOINT.md](docs/DEBUG_APIS_ENDPOINT.md) — Guia completo do endpoint de diagnóstico
 * [ARCHITECTURE.md](docs/ARCHITECTURE.md) — Arquitetura detalhada do sistema
-* [Dicionário de Indicadores](docs/dicionario_indicadores.md) — Mapeamento de 47 indicadores ISO
+* [Dicionário de Indicadores](docs/dicionario_indicadores.md) — Mapeamento dos indicadores usados no projeto
+* [docs/reports/](docs/reports/) — Relatórios finais, entregas e consolidação da implementação
 
 ---
 
@@ -250,6 +288,7 @@ O Urbix integra múltiplas fontes oficiais com **resiliência automática**: qua
 
 * **API Docs (Swagger):** http://localhost:8000/docs (após iniciar o backend)
 * **Interface Web:** http://localhost:5173 (após iniciar o frontend)
+* **Admin page:** `http://localhost:5173/admin` ou o caminho configurado no frontend
 * **IBGE SIDRA:** https://sidra.ibge.gov.br/api
 * **SICONFI (Tesouro):** https://apidatalake.tesouro.gov.br
 * **DataSUS:** https://apidadosabertos.saude.gov.br
