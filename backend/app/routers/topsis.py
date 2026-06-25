@@ -14,6 +14,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from pathlib import Path
+import json
 
 from app.schemas import (
     CityDataInput,
@@ -30,14 +32,67 @@ from app.services.external_apis import (
     get_datasus_health_infrastructure,
     get_inep_education,
     get_transparencia_social,
+    get_datasus_expanded_wrapper,
+    get_portal_transparencia_expanded_wrapper,
+    get_aneel_smart_metering,
+    get_ministerio_trabalho_accidents,
+    get_antp_zero_emission_fleet,
+    get_defesa_civil_disasters,
+    get_cnj_corruption_convictions,
 )
 from app.database import SessionLocal, get_db
-from app.models import IndicatorSnapshot, RankingSnapshot, DadosColeta, Indicador
+from app.models import IndicatorSnapshot, RankingSnapshot, Indicador, CityManualData
 
 # Logger para rastreamento
 logger = logging.getLogger(__name__)
 
 topsis_router = APIRouter(prefix="/topsis", tags=["TOPSIS"])
+
+
+CAPITAIS_BRASILEIRAS = [
+    {"codigo_ibge": "1100205", "nome": "Porto Velho"},
+    {"codigo_ibge": "1200401", "nome": "Rio Branco"},
+    {"codigo_ibge": "1302603", "nome": "Manaus"},
+    {"codigo_ibge": "1400100", "nome": "Boa Vista"},
+    {"codigo_ibge": "1501402", "nome": "Belém"},
+    {"codigo_ibge": "1600303", "nome": "Macapá"},
+    {"codigo_ibge": "1721000", "nome": "Palmas"},
+    {"codigo_ibge": "2105302", "nome": "São Luís"},
+    {"codigo_ibge": "2207702", "nome": "Teresina"},
+    {"codigo_ibge": "2304400", "nome": "Fortaleza"},
+    {"codigo_ibge": "2408102", "nome": "Natal"},
+    {"codigo_ibge": "2507507", "nome": "João Pessoa"},
+    {"codigo_ibge": "2607901", "nome": "Recife"},
+    {"codigo_ibge": "2704302", "nome": "Maceió"},
+    {"codigo_ibge": "2800308", "nome": "Aracaju"},
+    {"codigo_ibge": "2905701", "nome": "Salvador"},
+    {"codigo_ibge": "3106200", "nome": "Belo Horizonte"},
+    {"codigo_ibge": "3205309", "nome": "Vitória"},
+    {"codigo_ibge": "3304557", "nome": "Rio de Janeiro"},
+    {"codigo_ibge": "3550308", "nome": "São Paulo"},
+    {"codigo_ibge": "4106902", "nome": "Curitiba"},
+    {"codigo_ibge": "4205407", "nome": "Florianópolis"},
+    {"codigo_ibge": "4305108", "nome": "Porto Alegre"},
+    {"codigo_ibge": "5002704", "nome": "Campo Grande"},
+    {"codigo_ibge": "5103403", "nome": "Cuiabá"},
+    {"codigo_ibge": "5208707", "nome": "Goiânia"},
+    {"codigo_ibge": "5300108", "nome": "Brasília"},
+    {"codigo_ibge": "9999999", "nome": "UTFPRCity"},
+]
+
+
+def _unique_cities(cities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove duplicatas preservando a primeira ocorrência."""
+    seen = set()
+    unique = []
+    for city in cities:
+        codigo = str(city.get("codigo_ibge", "")).strip()
+        nome = str(city.get("nome", "")).strip()
+        if not codigo or codigo in seen:
+            continue
+        seen.add(codigo)
+        unique.append({"codigo_ibge": codigo, "nome": nome})
+    return unique
 
 # ==========================================
 # CONFIGURAÇÃO TOPSIS: IMPACTOS E PESOS
@@ -173,6 +228,57 @@ PESOS_EQUITATIVOS = [1.0 / _NUM_INDICADORES] * _NUM_INDICADORES
 logger.info(f"✅ TOPSIS Configurado: {_NUM_INDICADORES} indicadores, peso equitativo: {PESOS_EQUITATIVOS[0]:.4f}")
 
 # ==========================================
+# FUNÇÃO AUXILIAR: CARREGAR DADOS ETL
+# ==========================================
+
+def load_etl_data_for_city(codigo_ibge: str) -> Dict[str, Any]:
+    """
+    🔄 Carrega dados de CAGED e DATASUS SIM do arquivo indicators_master.json
+    
+    Arquivo gerado por: scripts/process_local_data.py
+    Localização: backend/app/data/indicators_master.json
+    
+    Args:
+        codigo_ibge: Código IBGE da cidade
+    
+    Returns:
+        Dict com chaves:
+        - saldo_empregos_caged: Saldo de empregos (Portal da Transparência)
+        - homicidios_100k: Taxa de homicídios por 100k habitantes (DATASUS SIM)
+    """
+    etl_file = Path(__file__).parent.parent / "data" / "indicators_master.json"
+    
+    etl_data = {}
+    
+    if not etl_file.exists():
+        logger.debug(f"⚠️  Arquivo ETL não encontrado: {etl_file}")
+        return etl_data
+    
+    try:
+        with open(etl_file, 'r', encoding='utf-8') as f:
+            master_data = json.load(f)
+        
+        # Extrair dados para esta cidade
+        if "municipios" in master_data and codigo_ibge in master_data["municipios"]:
+            cidade_data = master_data["municipios"][codigo_ibge]
+            
+            # Extrair CAGED (Saldo de Empregos)
+            if "saldo_empregos_caged" in cidade_data:
+                etl_data["saldo_empregos_caged"] = cidade_data["saldo_empregos_caged"]
+                logger.debug(f"   ✅ ETL CAGED: {etl_data['saldo_empregos_caged']}")
+            
+            # Extrair DATASUS SIM (Homicídios)
+            if "homicidios_100k" in cidade_data:
+                etl_data["homicidios_100k"] = cidade_data["homicidios_100k"]
+                logger.debug(f"   ✅ ETL DATASUS SIM: {etl_data['homicidios_100k']}")
+        
+        return etl_data
+    
+    except Exception as e:
+        logger.warning(f"⚠️  Erro ao ler dados ETL: {str(e)}")
+        return etl_data
+
+# ==========================================
 # FUNÇÕES AUXILIARES: INTERPOLAÇÃO INTELIGENTE
 # ==========================================
 
@@ -269,6 +375,15 @@ def inject_api_data_into_flat_list(
     datasus_data: Dict[str, Any],
     inep_data: Dict[str, Any],
     transparencia_data: Dict[str, Any],
+    datasus_expanded_data: Dict[str, Any],
+    portal_social_data: Dict[str, Any],  # NEW: Social programs data
+    etl_data: Dict[str, Any],  # NEW: ETL data (CAGED, DATASUS SIM)
+    # 🎯 5 NOVAS APIs (PARTE 3)
+    aneel_data: Dict[str, Any],  # API 5: ANEEL
+    ministerio_trabalho_data: Dict[str, Any],  # API 6: Min. Trabalho
+    antp_data: Dict[str, Any],  # API 7: ANTP
+    defesa_civil_data: Dict[str, Any],  # API 8: Defesa Civil
+    cnj_data: Dict[str, Any],  # API 9: CNJ
     nome_cidade: str
 ) -> List[float]:
     """
@@ -278,8 +393,11 @@ def inject_api_data_into_flat_list(
     - SICONFI: receita_propria_pct, despesas_capital_pct, orcamento_per_capita, divida (endividamento)
     - IBGE: população (para cálculos per capita)
     - DataSUS: hospitais_por_100k, proxy de serviços de saúde
+    - DataSUS Expandido: 5 indicadores de saúde [28-32]
     - INEP: relacao_estudante_professor, ideb_anos_iniciais, escolas_conectadas_pct
     - Portal da Transparência: taxa_populacao_assistida (Bolsa Família como proxy de vulnerabilidade social)
+    - 🎯 ETL (NOVO): CAGED (empregos), DATASUS SIM (homicídios)
+    - 🎯 5 NOVAS APIs (PARTE 3): ANEEL, Min. Trabalho, ANTP, Defesa Civil, CNJ
     
     Estratégia de Preenchimento:
     1. Se manual == 0.0 E API tem dados > 0 → Sobrescreve com API (dado real)
@@ -293,11 +411,26 @@ def inject_api_data_into_flat_list(
         datasus_data: Dict com num_hospitais
         inep_data: Dict com relacao_estudante_professor, ideb_anos_iniciais, escolas_conectadas_pct
         transparencia_data: Dict com beneficiados_bolsa_familia
+        datasus_expanded_data: Dict com 5 indicadores de saúde (novo em Phase 2)
+        portal_social_data: Dict com dados de programas sociais
+        etl_data: 🎯 Dict com saldo_empregos_caged, homicidios_100k (do indicators_master.json)
+        aneel_data: 🎯 Dict com medidores_inteligentes_pct (API ANEEL)
+        ministerio_trabalho_data: 🎯 Dict com acidentes_industriais_100k (API Min. Trabalho)
+        antp_data: 🎯 Dict com frota_onibus_zero_emissao_pct (API ANTP)
+        defesa_civil_data: 🎯 Dict com mortalidade_desastres_100k, perdas_desastres_pct_pib (API Defesa Civil)
+        cnj_data: 🎯 Dict com condenacoes_corrupcao_100k (API CNJ)
         nome_cidade: Para logging
     
     Returns:
-        Lista atualizada com dados das APIs injetados em ~15 indicadores
+        Lista atualizada com dados das APIs injetados em ~30 indicadores
     """
+    
+    # DEBUG: Log dos dados que chegaram
+    logger.info(f"\n🔍 DEBUG: Dados recebidos para injeção ({nome_cidade}):")
+    logger.info(f"   INEP keys: {list(inep_data.keys()) if isinstance(inep_data, dict) else 'não é dict'}")
+    logger.info(f"   INEP relacao: {inep_data.get('relacao_estudante_professor') if isinstance(inep_data, dict) else 'N/A'}")
+    logger.info(f"   INEP ideb: {inep_data.get('ideb_anos_iniciais') if isinstance(inep_data, dict) else 'N/A'}")
+    logger.info(f"   INEP escolas: {inep_data.get('escolas_conectadas_pct') if isinstance(inep_data, dict) else 'N/A'}")
     indicadores_flat = list(indicadores_flat)  # Copiar para não modificar original
     
     # ==========================================================
@@ -307,6 +440,15 @@ def inject_api_data_into_flat_list(
     datasus_data = datasus_data if isinstance(datasus_data, dict) else {}
     inep_data = inep_data if isinstance(inep_data, dict) else {}
     transparencia_data = transparencia_data if isinstance(transparencia_data, dict) else {}
+    datasus_expanded_data = datasus_expanded_data if isinstance(datasus_expanded_data, dict) else {}
+    portal_social_data = portal_social_data if isinstance(portal_social_data, dict) else {}  # NEW: Social programs
+    etl_data = etl_data if isinstance(etl_data, dict) else {}  # 🎯 NEW: ETL data
+    # 🎯 5 NOVAS APIs (PARTE 3) - Blindagem
+    aneel_data = aneel_data if isinstance(aneel_data, dict) else {}
+    ministerio_trabalho_data = ministerio_trabalho_data if isinstance(ministerio_trabalho_data, dict) else {}
+    antp_data = antp_data if isinstance(antp_data, dict) else {}
+    defesa_civil_data = defesa_civil_data if isinstance(defesa_civil_data, dict) else {}
+    cnj_data = cnj_data if isinstance(cnj_data, dict) else {}
     
     if isinstance(ibge_data, (int, float)):
         ibge_data = {"populacao": float(ibge_data)}
@@ -325,14 +467,50 @@ def inject_api_data_into_flat_list(
     
     num_hospitais = datasus_data.get("num_hospitais", 0) or 0
     
-    # Extrair dados do Portal da Transparência
-    beneficiados_bolsa_familia = transparencia_data.get("beneficiados_bolsa_familia", 0) or 0
+    # Extrair dados DataSUS Expandido (5 novos indicadores Phase 2 Task 4)
+    hospitais_por_100k = datasus_expanded_data.get("hospitais_por_100k", 0) or 0
+    leitos_uti_pct = datasus_expanded_data.get("leitos_uti_pct", 0) or 0
+    cobertura_vacina_covid_pct = datasus_expanded_data.get("cobertura_vacina_covid_pct", 0) or 0
+    cobertura_atencao_basica_pct = datasus_expanded_data.get("cobertura_atencao_basica_pct", 0) or 0
+    agentes_comunitarios_saude = datasus_expanded_data.get("agentes_comunitarios_saude", 0) or 0
     
-    logger.info(f"\n💾 INJEÇÃO DE DADOS DAS APIS ({nome_cidade}) - 15+ INDICADORES REAIS:")
+    # Extrair dados Portal Transparência Expandido (3 novos indicadores Phase 2 Task 2)
+    beneficiarios_programas_sociais_pct = portal_social_data.get("beneficiarios_programas_sociais_pct", 0) or 0
+    cobertura_alimentacao_escolar_pct = portal_social_data.get("cobertura_alimentacao_escolar_pct", 0) or 0
+    acesso_agua_potavel_pct = portal_social_data.get("acesso_agua_potavel_pct", 0) or 0
+    
+    # Extrair dados do Portal da Transparência + TSE
+    beneficiados_bolsa_familia = transparencia_data.get("beneficiados_bolsa_familia", 0) or 0
+    participacao_eleitoral_pct = transparencia_data.get("participacao_eleitoral_pct", 0) or 0
+    mulheres_eleitas_pct = transparencia_data.get("mulheres_eleitas_pct", 0) or 0
+    
+    # 🎯 Extrair dados do ETL (indicators_master.json gerado por process_local_data.py)
+    saldo_empregos_caged = etl_data.get("saldo_empregos_caged", 0) or 0
+    homicidios_100k_etl = etl_data.get("homicidios_100k", 0) or 0
+    
+    # 🎯 Extrair dados das 5 NOVAS APIs (PARTE 3)
+    medidores_inteligentes_pct = aneel_data.get("medidores_inteligentes_pct", 0) or 0
+    acidentes_industriais_100k = ministerio_trabalho_data.get("acidentes_industriais_100k", 0) or 0
+    frota_onibus_zero_emissao_pct = antp_data.get("frota_onibus_zero_emissao_pct", 0) or 0
+    mortalidade_desastres_100k = defesa_civil_data.get("mortalidade_desastres_100k", 0) or 0
+    perdas_desastres_pct_pib = defesa_civil_data.get("perdas_desastres_pct_pib", 0) or 0
+    condenacoes_corrupcao_100k = cnj_data.get("condenacoes_corrupcao_100k", 0) or 0
+    
+    logger.info(f"\n💾 INJEÇÃO DE DADOS DAS APIS ({nome_cidade}) - 25+ INDICADORES REAIS:")
     logger.info(f"   📊 SICONFI: receita={receita_propria_valor}, despesas={despesas_capital_valor}, receita_total={receita_total_valor}, dívida={divida_consolidada_valor}")
     logger.info(f"   📊 IBGE: população={populacao}")
     logger.info(f"   📊 DataSUS: hospitais={num_hospitais}")
+    logger.info(f"   📊 DataSUS Expandido (Phase 2): hospitais_100k={hospitais_por_100k}, leitos_uti={leitos_uti_pct}%, vacina={cobertura_vacina_covid_pct}%, atencao_basica={cobertura_atencao_basica_pct}%, agentes={agentes_comunitarios_saude}")
+    logger.info(f"   📊 Portal Expandido (Phase 2): prog_sociais={beneficiarios_programas_sociais_pct}%, alimentacao={cobertura_alimentacao_escolar_pct}%, agua={acesso_agua_potavel_pct}%")
+    logger.info(f"   📊 TSE: participacao={participacao_eleitoral_pct}%, mulheres={mulheres_eleitas_pct}%")
     logger.info(f"   📊 Portal: beneficiados_bolsa_familia={beneficiados_bolsa_familia}")
+    logger.info(f"   🎯 ETL: saldo_empregos={saldo_empregos_caged}, homicidios_100k={homicidios_100k_etl} (CAGED + DATASUS SIM)")
+    # 🎯 Logs das 5 NOVAS APIs (PARTE 3)
+    logger.info(f"   🎯 ANEEL: medidores_inteligentes={medidores_inteligentes_pct}%")
+    logger.info(f"   🎯 Min. Trabalho: acidentes_industriais={acidentes_industriais_100k}/100k")
+    logger.info(f"   🎯 ANTP: frota_zero_emissao={frota_onibus_zero_emissao_pct}%")
+    logger.info(f"   🎯 Defesa Civil: mortalidade_desastres={mortalidade_desastres_100k}/100k, perdas_desastres={perdas_desastres_pct_pib}% PIB")
+    logger.info(f"   🎯 CNJ: condenacoes_corrupcao={condenacoes_corrupcao_100k}/100k")
     
     # ===== CÁLCULOS DOS INDICADORES REAIS =====
     
@@ -371,6 +549,27 @@ def inject_api_data_into_flat_list(
     mapas_ameacas_calc = (arrecadacao_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
     
     # ===== INJEÇÕES NA MATRIZ =====
+    
+    # 🎯 [0] Taxa de Desemprego (%) - Usando CAGED: Saldo de Empregos
+    # Interpretação: Saldo positivo → mais empregos → desemprego baixo
+    if indicadores_flat[0] == 0.0 and saldo_empregos_caged != 0:
+        # Normalizar: maior saldo → menor desemprego
+        taxa_desemprego_proxy = max(0, 10 - (saldo_empregos_caged / max(populacao, 1) * 1000))
+        indicadores_flat[0] = min(taxa_desemprego_proxy, 25.0)  # Cap em 25%
+        logger.info(f"   ✅ [Índice 0] Taxa Desemprego: {indicadores_flat[0]:.2f}% (CAGED - Saldo Empregos)")
+    elif indicadores_flat[0] > 0:
+        logger.info(f"   ⚪ [Índice 0] Taxa Desemprego: {indicadores_flat[0]:.2f}% (MANUAL)")
+    elif indicadores_flat[0] == 0.0:
+        logger.info(f"   ⚪ [Índice 0] Taxa Desemprego: 0.0 (SEM DADOS)")
+    
+    # 🎯 [13] Homicídios (100k hab) - Usando DATASUS SIM
+    if indicadores_flat[13] == 0.0 and homicidios_100k_etl > 0:
+        indicadores_flat[13] = homicidios_100k_etl
+        logger.info(f"   ✅ [Índice 13] Homicídios/100k: {homicidios_100k_etl:.2f} (DATASUS SIM - ETL)")
+    elif indicadores_flat[13] > 0:
+        logger.info(f"   ⚪ [Índice 13] Homicídios/100k: {indicadores_flat[13]:.2f} (MANUAL)")
+    elif indicadores_flat[13] == 0.0:
+        logger.info(f"   ⚪ [Índice 13] Homicídios/100k: 0.0 (SEM DADOS)")
     
     # [1] Taxa de Endividamento
     if indicadores_flat[1] == 0.0 and taxa_endividamento_calc > 0:
@@ -440,6 +639,20 @@ def inject_api_data_into_flat_list(
     elif indicadores_flat[16] == 0.0:
         logger.info(f"   ⚪ [Índice 16] IDEB Anos Iniciais: 0.0 (SEM DADOS)")
     
+    # [5] Mulheres Eleitas em Cargos (% - TSE)
+    if indicadores_flat[5] == 0.0 and mulheres_eleitas_pct > 0:
+        indicadores_flat[5] = mulheres_eleitas_pct
+        logger.info(f"   ✅ [Índice 5] Mulheres Eleitas: {mulheres_eleitas_pct:.1f}% (TSE)")
+    elif indicadores_flat[5] == 0.0:
+        logger.info(f"   ⚪ [Índice 5] Mulheres Eleitas: 0.0 (SEM DADOS)")
+    
+    # [7] Participação Eleitoral (% - TSE)
+    if indicadores_flat[7] == 0.0 and participacao_eleitoral_pct > 0:
+        indicadores_flat[7] = participacao_eleitoral_pct
+        logger.info(f"   ✅ [Índice 7] Participação Eleitoral: {participacao_eleitoral_pct:.1f}% (TSE)")
+    elif indicadores_flat[7] == 0.0:
+        logger.info(f"   ⚪ [Índice 7] Participação Eleitoral: 0.0 (SEM DADOS)")
+    
     # [24] Monitoramento Ar em Tempo Real (proxy de infraestrutura)
     if indicadores_flat[24] == 0.0 and monitoramento_ar_calc > 0:
         indicadores_flat[24] = monitoramento_ar_calc
@@ -454,6 +667,66 @@ def inject_api_data_into_flat_list(
         logger.info(f"   ✅ [Índice 33] Escolas Conectadas: {escolas_conectadas_pct:.1f}% (INEP)")
     elif indicadores_flat[33] == 0.0:
         logger.info(f"   ⚪ [Índice 33] Escolas Conectadas: 0.0 (SEM DADOS)")
+    
+    # ✨ PHASE 2: DataSUS Expandido - 5 Novos Indicadores de Saúde [28-32]
+    
+    # [28] Hospitais por 100k habitantes (DataSUS Expandido)
+    if indicadores_flat[28] == 0.0 and hospitais_por_100k > 0:
+        indicadores_flat[28] = hospitais_por_100k
+        logger.info(f"   ✅ [Índice 28] Hospitais/100k hab: {hospitais_por_100k:.2f} (DataSUS Expandido)")
+    elif indicadores_flat[28] == 0.0:
+        logger.info(f"   ⚪ [Índice 28] Hospitais/100k hab: 0.0 (SEM DADOS)")
+    
+    # [29] Leitos UTI (%) (DataSUS Expandido)
+    if indicadores_flat[29] == 0.0 and leitos_uti_pct > 0:
+        indicadores_flat[29] = leitos_uti_pct
+        logger.info(f"   ✅ [Índice 29] Leitos UTI: {leitos_uti_pct:.1f}% (DataSUS Expandido)")
+    elif indicadores_flat[29] == 0.0:
+        logger.info(f"   ⚪ [Índice 29] Leitos UTI: 0.0 (SEM DADOS)")
+    
+    # [30] Cobertura Vacinação COVID (%) (DataSUS Expandido)
+    if indicadores_flat[30] == 0.0 and cobertura_vacina_covid_pct > 0:
+        indicadores_flat[30] = cobertura_vacina_covid_pct
+        logger.info(f"   ✅ [Índice 30] Cobertura Vacina COVID: {cobertura_vacina_covid_pct:.1f}% (DataSUS Expandido)")
+    elif indicadores_flat[30] == 0.0:
+        logger.info(f"   ⚪ [Índice 30] Cobertura Vacina COVID: 0.0 (SEM DADOS)")
+    
+    # [31] Cobertura Atenção Básica (%) (DataSUS Expandido)
+    if indicadores_flat[31] == 0.0 and cobertura_atencao_basica_pct > 0:
+        indicadores_flat[31] = cobertura_atencao_basica_pct
+        logger.info(f"   ✅ [Índice 31] Cobertura Atenção Básica: {cobertura_atencao_basica_pct:.1f}% (DataSUS Expandido)")
+    elif indicadores_flat[31] == 0.0:
+        logger.info(f"   ⚪ [Índice 31] Cobertura Atenção Básica: 0.0 (SEM DADOS)")
+    
+    # [32] Agentes Comunitários de Saúde (DataSUS Expandido)
+    if indicadores_flat[32] == 0.0 and agentes_comunitarios_saude > 0:
+        indicadores_flat[32] = agentes_comunitarios_saude
+        logger.info(f"   ✅ [Índice 32] Agentes Comunitários: {agentes_comunitarios_saude:.0f} (DataSUS Expandido)")
+    elif indicadores_flat[32] == 0.0:
+        logger.info(f"   ⚪ [Índice 32] Agentes Comunitários: 0.0 (SEM DADOS)")
+    
+    # ✨ PHASE 2 TASK 2: Portal Transparência Expandido - 3 Novos Indicadores Sociais [37,39,44]
+    
+    # [37] Beneficiários de Programas Sociais (%) (Portal Expandido - Phase 2 Task 2)
+    if indicadores_flat[37] == 0.0 and beneficiarios_programas_sociais_pct > 0:
+        indicadores_flat[37] = beneficiarios_programas_sociais_pct
+        logger.info(f"   ✅ [Índice 37] Beneficiários Programas Sociais: {beneficiarios_programas_sociais_pct:.1f}% (Portal Expandido)")
+    elif indicadores_flat[37] == 0.0:
+        logger.info(f"   ⚪ [Índice 37] Beneficiários Programas Sociais: 0.0 (SEM DADOS)")
+    
+    # [39] Cobertura Alimentação Escolar (%) (Portal Expandido - Phase 2 Task 2)
+    if indicadores_flat[39] == 0.0 and cobertura_alimentacao_escolar_pct > 0:
+        indicadores_flat[39] = cobertura_alimentacao_escolar_pct
+        logger.info(f"   ✅ [Índice 39] Cobertura Alimentação Escolar: {cobertura_alimentacao_escolar_pct:.1f}% (Portal Expandido)")
+    elif indicadores_flat[39] == 0.0:
+        logger.info(f"   ⚪ [Índice 39] Cobertura Alimentação Escolar: 0.0 (SEM DADOS)")
+    
+    # [44] Acesso a Água Potável (%) (Portal Expandido - Phase 2 Task 2 - SNIS)
+    if indicadores_flat[44] == 0.0 and acesso_agua_potavel_pct > 0:
+        indicadores_flat[44] = acesso_agua_potavel_pct
+        logger.info(f"   ✅ [Índice 44] Acesso Água Potável: {acesso_agua_potavel_pct:.1f}% (Portal Expandido)")
+    elif indicadores_flat[44] == 0.0:
+        logger.info(f"   ⚪ [Índice 44] Acesso Água Potável: 0.0 (SEM DADOS)")
     
     # [35] Hospitais por 100k habitantes (proxy para serviços de saúde)
     if indicadores_flat[35] == 0.0 and hospitais_100k_calc > 0:
@@ -482,6 +755,43 @@ def inject_api_data_into_flat_list(
         logger.info(f"   ✅ [Índice 42] Mapas Ameaças: {mapas_ameacas_calc:.2f}% (SICONFI proxy)")
     elif indicadores_flat[42] == 0.0:
         logger.info(f"   ⚪ [Índice 42] Mapas Ameaças: 0.0 (SEM DADOS)")
+    
+    # 🎯 5 NOVAS APIs (PARTE 3) - INJEÇÃO DAS 5 NOVAS APIS
+    
+    # [6] Condenações por Corrupção/100k (CNJ)
+    if indicadores_flat[6] == 0.0 and condenacoes_corrupcao_100k > 0:
+        indicadores_flat[6] = condenacoes_corrupcao_100k
+        logger.info(f"   ✅ [Índice 6] Condenações Corrupção: {condenacoes_corrupcao_100k:.2f}/100k (CNJ)")
+    elif indicadores_flat[6] == 0.0:
+        logger.info(f"   ⚪ [Índice 6] Condenações Corrupção: 0.0 (SEM DADOS)")
+    
+    # [14] Acidentes Industriais/100k (Min. Trabalho)
+    if indicadores_flat[14] == 0.0 and acidentes_industriais_100k > 0:
+        indicadores_flat[14] = acidentes_industriais_100k
+        logger.info(f"   ✅ [Índice 14] Acidentes Industriais: {acidentes_industriais_100k:.2f}/100k (Min. Trabalho)")
+    elif indicadores_flat[14] == 0.0:
+        logger.info(f"   ⚪ [Índice 14] Acidentes Industriais: 0.0 (SEM DADOS)")
+    
+    # [22] Medidores Inteligentes Energia (ANEEL)
+    if indicadores_flat[22] == 0.0 and medidores_inteligentes_pct > 0:
+        indicadores_flat[22] = medidores_inteligentes_pct
+        logger.info(f"   ✅ [Índice 22] Medidores Inteligentes: {medidores_inteligentes_pct:.1f}% (ANEEL)")
+    elif indicadores_flat[22] == 0.0:
+        logger.info(f"   ⚪ [Índice 22] Medidores Inteligentes: 0.0 (SEM DADOS)")
+    
+    # [32] Frota Ônibus Zero Emissão (ANTP)
+    if indicadores_flat[32] == 0.0 and frota_onibus_zero_emissao_pct > 0:
+        indicadores_flat[32] = frota_onibus_zero_emissao_pct
+        logger.info(f"   ✅ [Índice 32] Frota Ônibus Zero Emissão: {frota_onibus_zero_emissao_pct:.1f}% (ANTP)")
+    elif indicadores_flat[32] == 0.0:
+        logger.info(f"   ⚪ [Índice 32] Frota Ônibus Zero Emissão: 0.0 (SEM DADOS)")
+    
+    # [46] Mortalidade por Desastres/100k (Defesa Civil)
+    if indicadores_flat[46] == 0.0 and mortalidade_desastres_100k > 0:
+        indicadores_flat[46] = mortalidade_desastres_100k
+        logger.info(f"   ✅ [Índice 46] Mortalidade Desastres: {mortalidade_desastres_100k:.2f}/100k (Defesa Civil)")
+    elif indicadores_flat[46] == 0.0:
+        logger.info(f"   ⚪ [Índice 46] Mortalidade Desastres: 0.0 (SEM DADOS)")
     
     return indicadores_flat
 
@@ -587,14 +897,26 @@ async def processar_cidade_real(
         # ===================================================================
         logger.info(f"\n📡 Buscando dados em APIs externas (paralelo) - Timeout: 10s")
         
+        # 🎯 População padrão para as novas APIs (será atualizada se IBGE responder)
+        populacao_default = 100000
+        
         try:
-            # Chamar APIs com timeout de 10 segundos cada (incluindo Portal da Transparência)
-            siconfi_data, ibge_data, datasus_data, inep_data, transparencia_data = await asyncio.gather(
+            # Chamar 12 APIs em paralelo: 7 originais + 5 novas (PARTE 3)
+            siconfi_data, ibge_data, datasus_data, inep_data, transparencia_data, datasus_expanded_data, portal_social_data, \
+            aneel_data, ministerio_trabalho_data, antp_data, defesa_civil_data, cnj_data = await asyncio.gather(
                 asyncio.wait_for(get_siconfi_finances(codigo_ibge), timeout=10.0),
                 asyncio.wait_for(get_ibge_population(codigo_ibge), timeout=10.0),
                 asyncio.wait_for(get_datasus_health_infrastructure(codigo_ibge), timeout=10.0),
                 asyncio.wait_for(get_inep_education(codigo_ibge), timeout=10.0),
                 asyncio.wait_for(get_transparencia_social(codigo_ibge), timeout=10.0),
+                asyncio.wait_for(get_datasus_expanded_wrapper(codigo_ibge), timeout=10.0),
+                asyncio.wait_for(get_portal_transparencia_expanded_wrapper(codigo_ibge), timeout=10.0),  # NEW: Social Programs
+                # 🎯 5 NOVAS APIs (PARTE 3) - usando populacao_default
+                asyncio.wait_for(get_aneel_smart_metering(codigo_ibge), timeout=10.0),
+                asyncio.wait_for(get_ministerio_trabalho_accidents(codigo_ibge, populacao_default), timeout=10.0),
+                asyncio.wait_for(get_antp_zero_emission_fleet(codigo_ibge), timeout=10.0),
+                asyncio.wait_for(get_defesa_civil_disasters(codigo_ibge, populacao_default), timeout=10.0),
+                asyncio.wait_for(get_cnj_corruption_convictions(codigo_ibge, populacao_default), timeout=10.0),
                 return_exceptions=True  # Captura também timeouts
             )
             
@@ -619,6 +941,35 @@ async def processar_cidade_real(
                 logger.warning(f"   ⏱️  TIMEOUT/ERRO Portal da Transparência ({codigo_ibge}): {type(transparencia_data).__name__}")
                 transparencia_data = {}
             
+            if isinstance(datasus_expanded_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO DataSUS Expandido ({codigo_ibge}): {type(datasus_expanded_data).__name__}")
+                datasus_expanded_data = {}
+            
+            if isinstance(portal_social_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO Portal Transparência Expandido ({codigo_ibge}): {type(portal_social_data).__name__}")
+                portal_social_data = {}
+            
+            # 🎯 Validação das 5 NOVAS APIs (PARTE 3)
+            if isinstance(aneel_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO ANEEL ({codigo_ibge}): {type(aneel_data).__name__}")
+                aneel_data = {}
+            
+            if isinstance(ministerio_trabalho_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO Min. Trabalho ({codigo_ibge}): {type(ministerio_trabalho_data).__name__}")
+                ministerio_trabalho_data = {}
+            
+            if isinstance(antp_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO ANTP ({codigo_ibge}): {type(antp_data).__name__}")
+                antp_data = {}
+            
+            if isinstance(defesa_civil_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO Defesa Civil ({codigo_ibge}): {type(defesa_civil_data).__name__}")
+                defesa_civil_data = {}
+            
+            if isinstance(cnj_data, Exception):
+                logger.warning(f"   ⏱️  TIMEOUT/ERRO CNJ ({codigo_ibge}): {type(cnj_data).__name__}")
+                cnj_data = {}
+            
             # Log de sucesso
             if isinstance(siconfi_data, dict):
                 logger.info(f"   ✅ SICONFI respondeu em < 10s")
@@ -630,16 +981,40 @@ async def processar_cidade_real(
                 logger.info(f"   ✅ INEP respondeu em < 10s")
             if isinstance(transparencia_data, dict):
                 logger.info(f"   ✅ Portal da Transparência respondeu em < 10s")
+            if isinstance(datasus_expanded_data, dict):
+                logger.info(f"   ✅ DataSUS Expandido respondeu em < 10s")
+            if isinstance(portal_social_data, dict):
+                logger.info(f"   ✅ Portal Transparência Expandido respondeu em < 10s")
+            # 🎯 Log das 5 NOVAS APIs (PARTE 3)
+            if isinstance(aneel_data, dict):
+                logger.info(f"   ✅ ANEEL respondeu em < 10s")
+            if isinstance(ministerio_trabalho_data, dict):
+                logger.info(f"   ✅ Min. Trabalho respondeu em < 10s")
+            if isinstance(antp_data, dict):
+                logger.info(f"   ✅ ANTP respondeu em < 10s")
+            if isinstance(defesa_civil_data, dict):
+                logger.info(f"   ✅ Defesa Civil respondeu em < 10s")
+            if isinstance(cnj_data, dict):
+                logger.info(f"   ✅ CNJ respondeu em < 10s")
         
         except Exception as e:
             logger.error(f"   ❌ Erro crítico ao buscar APIs: {str(e)}")
-            siconfi_data, ibge_data, datasus_data, inep_data = {}, {}, {}, {}
+            siconfi_data, ibge_data, datasus_data, inep_data, datasus_expanded_data, portal_social_data = {}, {}, {}, {}, {}, {}
+            aneel_data, ministerio_trabalho_data, antp_data, defesa_civil_data, cnj_data = {}, {}, {}, {}, {}
         
         # Normalizar dados das APIs com defaults
         siconfi_data = siconfi_data or {}
         ibge_data = ibge_data or 100000  # Default população
         datasus_data = datasus_data or {}
+        datasus_expanded_data = datasus_expanded_data or {}
         transparencia_data = transparencia_data or {}
+        portal_social_data = portal_social_data or {}  # NEW: Portal social programs
+        # 🎯 Normalizar as 5 NOVAS APIs (PARTE 3)
+        aneel_data = aneel_data or {}
+        ministerio_trabalho_data = ministerio_trabalho_data or {}
+        antp_data = antp_data or {}
+        defesa_civil_data = defesa_civil_data or {}
+        cnj_data = cnj_data or {}
         
         # Se IBGE retornou um float, converter para dict
         if isinstance(ibge_data, (int, float)):
@@ -648,6 +1023,14 @@ async def processar_cidade_real(
         else:
             ibge_data = ibge_data or {}
             populacao = ibge_data.get("populacao", 0) or 100000
+        
+        # 🎯 Carregar dados ETL (indicators_master.json gerado por process_local_data.py)
+        logger.info(f"\n📂 Carregando dados ETL (CAGED, DATASUS SIM)...")
+        etl_data = load_etl_data_for_city(codigo_ibge)
+        if etl_data:
+            logger.info(f"   ✅ Dados ETL carregados: {list(etl_data.keys())}")
+        else:
+            logger.info(f"   ℹ️  Nenhum dado ETL para {codigo_ibge}")
         
         # ⭐ PASSO 2: INJEÇÃO DOS DADOS AUTOMÁTICOS
         # ===================================================================
@@ -659,6 +1042,15 @@ async def processar_cidade_real(
             datasus_data,
             inep_data,
             transparencia_data,
+            datasus_expanded_data,
+            portal_social_data,  # NEW: Pass social programs data
+            etl_data,  # 🎯 NEW: Pass ETL data (CAGED, DATASUS SIM)
+            # 🎯 5 NOVAS APIs (PARTE 3)
+            aneel_data,
+            ministerio_trabalho_data,
+            antp_data,
+            defesa_civil_data,
+            cnj_data,
             nome_cidade
         )
         
@@ -673,11 +1065,11 @@ async def processar_cidade_real(
                 from app.models import CityManualData, CityManualDataHistory
                 from datetime import datetime
                 
-                # Reconstruir dicionário JSON de 47 indicadores a partir da lista plana atualizada
+                # Reconstruir dicionário JSON de 50 indicadores a partir da lista plana atualizada
                 # Mapear de volta para a estrutura nested
                 manual_atual = ManualCityIndicators()
                 
-                # ISO 37120 (índices 0-14)
+                # ISO 37120 (índices 0-16) - 17 indicadores (16 originais + 1 INEP educação não, 2 INEP)
                 manual_atual.iso_37120.taxa_desemprego_pct = indicadores_flat[0]
                 manual_atual.iso_37120.taxa_endividamento_pct = indicadores_flat[1]
                 manual_atual.iso_37120.despesas_capital_pct = indicadores_flat[2]
@@ -693,42 +1085,45 @@ async def processar_cidade_real(
                 manual_atual.iso_37120.agentes_policia_100k = indicadores_flat[12]
                 manual_atual.iso_37120.homicidios_100k = indicadores_flat[13]
                 manual_atual.iso_37120.acidentes_industriais_100k = indicadores_flat[14]
+                manual_atual.iso_37120.relacao_estudante_professor = indicadores_flat[15]  # NEW INEP
+                manual_atual.iso_37120.ideb_anos_iniciais = indicadores_flat[16]           # NEW INEP
                 
-                # ISO 37122 (índices 15-29)
-                manual_atual.iso_37122.sobrevivencia_novos_negocios_100k = indicadores_flat[15]
-                manual_atual.iso_37122.empregos_tic_pct = indicadores_flat[16]
-                manual_atual.iso_37122.graduados_stem_100k = indicadores_flat[17]
-                manual_atual.iso_37122.energia_residuos_pct = indicadores_flat[18]
-                manual_atual.iso_37122.iluminacao_telegestao_pct = indicadores_flat[19]
-                manual_atual.iso_37122.medidores_inteligentes_energia_pct = indicadores_flat[20]
-                manual_atual.iso_37122.edificios_verdes_pct = indicadores_flat[21]
-                manual_atual.iso_37122.monitoramento_ar_tempo_real_pct = indicadores_flat[22]
-                manual_atual.iso_37122.servicos_urbanos_online_pct = indicadores_flat[23]
-                manual_atual.iso_37122.prontuario_eletronico_pct = indicadores_flat[24]
-                manual_atual.iso_37122.consultas_remotas_100k = indicadores_flat[25]
-                manual_atual.iso_37122.medidores_inteligentes_agua_pct = indicadores_flat[26]
-                manual_atual.iso_37122.areas_cobertas_cameras_pct = indicadores_flat[27]
-                manual_atual.iso_37122.lixeiras_sensores_pct = indicadores_flat[28]
-                manual_atual.iso_37122.semaforos_inteligentes_pct = indicadores_flat[29]
-                manual_atual.iso_37122.frota_onibus_limpos_pct = indicadores_flat[30]
+                # ISO 37122 (índices 17-33) - 17 indicadores (15 originais + 1 educacional INEP + 1 gap)
+                manual_atual.iso_37122.sobrevivencia_novos_negocios_100k = indicadores_flat[17]
+                manual_atual.iso_37122.empregos_tic_pct = indicadores_flat[18]
+                manual_atual.iso_37122.graduados_stem_100k = indicadores_flat[19]
+                manual_atual.iso_37122.energia_residuos_pct = indicadores_flat[20]
+                manual_atual.iso_37122.iluminacao_telegestao_pct = indicadores_flat[21]
+                manual_atual.iso_37122.medidores_inteligentes_energia_pct = indicadores_flat[22]
+                manual_atual.iso_37122.edificios_verdes_pct = indicadores_flat[23]
+                manual_atual.iso_37122.monitoramento_ar_tempo_real_pct = indicadores_flat[24]
+                manual_atual.iso_37122.servicos_urbanos_online_pct = indicadores_flat[25]
+                manual_atual.iso_37122.prontuario_eletronico_pct = indicadores_flat[26]
+                manual_atual.iso_37122.consultas_remotas_100k = indicadores_flat[27]
+                manual_atual.iso_37122.medidores_inteligentes_agua_pct = indicadores_flat[28]
+                manual_atual.iso_37122.areas_cobertas_cameras_pct = indicadores_flat[29]
+                manual_atual.iso_37122.lixeiras_sensores_pct = indicadores_flat[30]
+                manual_atual.iso_37122.semaforos_inteligentes_pct = indicadores_flat[31]
+                manual_atual.iso_37122.frota_onibus_limpos_pct = indicadores_flat[32]
+                manual_atual.iso_37122.escolas_conectadas_pct = indicadores_flat[33]      # NEW INEP
                 
-                # ISO 37123 + Sendai (índices 31-46)
-                manual_atual.iso_37123.seguro_ameacas_pct = indicadores_flat[31]
-                manual_atual.iso_37123.empregos_informais_pct = indicadores_flat[32]
-                manual_atual.iso_37123.escolas_preparacao_emergencia_pct = indicadores_flat[33]
-                manual_atual.iso_37123.populacao_treinada_emergencia_pct = indicadores_flat[34]
-                manual_atual.iso_37123.hospitais_geradores_backup_pct = indicadores_flat[35]
-                manual_atual.iso_37123.seguro_saude_basico_pct = indicadores_flat[36]
-                manual_atual.iso_37123.imunizacao_pct = indicadores_flat[37]
-                manual_atual.iso_37123.abrigos_emergencia_100k = indicadores_flat[38]
-                manual_atual.iso_37123.edificios_vulneraveis_pct = indicadores_flat[39]
-                manual_atual.iso_37123.rotas_evacuacao_100k = indicadores_flat[40]
-                manual_atual.iso_37123.reservas_alimentos_72h_pct = indicadores_flat[41]
-                manual_atual.iso_37123.mapas_ameacas_publicos_pct = indicadores_flat[42]
-                manual_atual.iso_37123.mortalidade_desastres_100k = indicadores_flat[43]
-                manual_atual.iso_37123.pessoas_afetadas_desastres_100k = indicadores_flat[44]
-                manual_atual.iso_37123.perdas_desastres_pct_pib = indicadores_flat[45]
-                manual_atual.iso_37123.danos_infraestrutura_basica_pct = indicadores_flat[46]
+                # ISO 37123 + Sendai (índices 34-49) - 16 indicadores
+                manual_atual.iso_37123.seguro_ameacas_pct = indicadores_flat[34]
+                manual_atual.iso_37123.empregos_informais_pct = indicadores_flat[35]
+                manual_atual.iso_37123.escolas_preparacao_emergencia_pct = indicadores_flat[36]
+                manual_atual.iso_37123.populacao_treinada_emergencia_pct = indicadores_flat[37]
+                manual_atual.iso_37123.hospitais_geradores_backup_pct = indicadores_flat[38]
+                manual_atual.iso_37123.seguro_saude_basico_pct = indicadores_flat[39]
+                manual_atual.iso_37123.imunizacao_pct = indicadores_flat[40]
+                manual_atual.iso_37123.abrigos_emergencia_100k = indicadores_flat[41]
+                manual_atual.iso_37123.edificios_vulneraveis_pct = indicadores_flat[42]
+                manual_atual.iso_37123.rotas_evacuacao_100k = indicadores_flat[43]
+                manual_atual.iso_37123.reservas_alimentos_72h_pct = indicadores_flat[44]
+                manual_atual.iso_37123.mapas_ameacas_publicos_pct = indicadores_flat[45]
+                manual_atual.iso_37123.mortalidade_desastres_100k = indicadores_flat[46]
+                manual_atual.iso_37123.pessoas_afetadas_desastres_100k = indicadores_flat[47]
+                manual_atual.iso_37123.perdas_desastres_pct_pib = indicadores_flat[48]
+                manual_atual.iso_37123.danos_infraestrutura_basica_pct = indicadores_flat[49]
                 
                 # Converter novo dict
                 dados_novos = manual_atual.model_dump()
@@ -808,6 +1203,34 @@ async def processar_cidade_real(
                 logger.warning(f"   ⚠️  Falha ao salvar cache inteligente (continuando): {str(cache_error)}")
         else:
             logger.info(f"\n💾 PASSO 3: Cache inteligente DESABILITADO (sem sessão de banco)")
+        
+        # ===================================================================
+        # 📊 PASSO 4: SALVAR SNAPSHOT HISTÓRICO DE INDICADORES
+        # ===================================================================
+        if db is not None:
+            logger.info(f"\n📊 PASSO 4: SALVANDO SNAPSHOT HISTÓRICO DE INDICADORES")
+            try:
+                periodo_referencia = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Salvar snapshot dos 50 indicadores calculados para esta cidade
+                snapshot = IndicatorSnapshot(
+                    codigo_ibge=codigo_ibge,
+                    valores_indicadores=indicadores_flat,  # Lista de 50 valores
+                    data_calculo=datetime.utcnow(),
+                    fonte_dados="hibrido",  # APIs + Manual
+                    periodo_referencia=periodo_referencia
+                )
+                db.add(snapshot)
+                db.commit()
+                
+                dados_nao_zero_temp = len([v for v in indicadores_flat if v > 0])
+                logger.info(f"   ✅ Snapshot histórico salvo: {len(indicadores_flat)} indicadores")
+                logger.info(f"   📈 Indicadores com dados: {dados_nao_zero_temp}/50 ({dados_nao_zero_temp/50*100:.1f}%)")
+                
+            except Exception as snapshot_error:
+                logger.warning(f"   ⚠️  Falha ao salvar snapshot histórico (continuando): {str(snapshot_error)}")
+        else:
+            logger.info(f"\n📊 PASSO 4: Snapshot histórico DESABILITADO (sem sessão de banco)")
         
         # ===================================================================
         # ✅ VALIDAÇÃO FINAL
@@ -944,36 +1367,17 @@ async def get_hybrid_ranking(payload: List[CityHybridInput], db: Session = Depen
         logger.info(f"   Cidades: {', '.join(cidades_nomes)}")
         
         # ===================================================================
-        # ✅ IMPUTAÇÃO PELA MÉDIA (Mean Imputation)
+        # ✅ MANTER DADOS ORIGINAIS NA MATRIZ
         # ===================================================================
-        logger.info(f"\n💉 IMPUTAÇÃO PELA MÉDIA: Preenchendo valores faltantes (0.0) com média dos dados reais")
-        
-        # Converter para NumPy para facilitar operações
+        # Antes havia imputação pela média nos zeros. Isso “achatava” cidades
+        # com muitos fallbacks, fazendo o gráfico e o ranking ficarem quase iguais.
+        # Agora preservamos os valores originais: zeros continuam zero e o TOPSIS
+        # lida com isso naturalmente no cálculo, sem misturar fallback com dado real.
+        logger.info(f"\n🧪 MATRIZ ORIGINAL PRESERVADA: zeros e fallbacks mantidos sem imputação pela média")
+
         matriz_np = np.array(matriz_decisao, dtype=float)
-        total_imputados = 0
-        
-        # Iterar sobre cada coluna (indicadores)
-        for col_idx in range(_NUM_INDICADORES):
-            coluna = matriz_np[:, col_idx]
-            valores_reais = coluna[coluna > 0.0]  # Apenas valores > 0.0
-            
-            if len(valores_reais) > 0:
-                media_coluna = float(np.mean(valores_reais))
-                
-                # Contar zeros para imputar
-                zeros_na_coluna = np.sum(coluna == 0.0)
-                
-                if zeros_na_coluna > 0:
-                    # Substituir zeros pela média
-                    matriz_np[coluna == 0.0, col_idx] = media_coluna
-                    total_imputados += zeros_na_coluna
-                    
-                    logger.debug(f"   [Índice {col_idx:2d}] {INDICADORES_NOMES[col_idx]:50s} → Média: {media_coluna:8.2f} (Imputados: {zeros_na_coluna})")
-        
-        percentual_imputado = (total_imputados / (_NUM_INDICADORES * len(matriz_decisao)) * 100) if len(matriz_decisao) > 0 else 0
-        logger.info(f"   ✅ Total valores imputados: {total_imputados} ({percentual_imputado:.1f}% da matriz)")
-        
-        # Converter de volta para lista de listas Python puro
+
+        # Converter de volta para lista de listas Python puro (sem alteração)
         matriz_decisao = matriz_np.tolist()
         
         # Executa TOPSIS com configuração completa
@@ -999,6 +1403,7 @@ async def get_hybrid_ranking(payload: List[CityHybridInput], db: Session = Depen
         # Adicionar metadados de cobertura de dados por cidade
         coberturas = [r.get("metadata_cobertura", {}) for r in cidades_sucesso]
         result.detalhes_calculo["cobertura_dados_por_cidade"] = coberturas
+        result.detalhes_calculo["imputacao_media"] = False
         
         logger.info(f"\n🏆 RANKING FINAL CALCULADO:")
         for i, city in enumerate(result.ranking, 1):
@@ -1247,42 +1652,120 @@ def converter_dict_to_manual_indicators(data: Dict[str, Any]) -> ManualCityIndic
             return ManualCityIndicators(**data)
         except Exception as banco_error:
             logger.warning(f"⚠️ Erro ao converter dict nested: {str(banco_error)}, usando defaults")
-            return ManualCityIndicators()
-    
-    # Formato simples do frontend
-    resultado = ManualCityIndicators()
-    
-    # Mapeamentos do frontend para ISO (4 campos principais)
-    if "bombeiros_por_100k" in data and data["bombeiros_por_100k"]:
-        resultado.iso_37120.bombeiros_100k = float(data["bombeiros_por_100k"])
-    
-    if "pontos_iluminacao_telegestao" in data and data["pontos_iluminacao_telegestao"]:
-        resultado.iso_37122.iluminacao_telegestao_pct = float(data["pontos_iluminacao_telegestao"])
-    
-    if "medidores_inteligentes_energia" in data and data["medidores_inteligentes_energia"]:
-        resultado.iso_37122.medidores_inteligentes_energia_pct = float(data["medidores_inteligentes_energia"])
-    
-    if "area_verde_mapeada" in data and data["area_verde_mapeada"]:
-        resultado.iso_37122.edificios_verdes_pct = float(data["area_verde_mapeada"])
-    
-    # Suportar mais campos do frontend se necessário
-    mapeamentos = {
-        "taxa_desemprego": ("iso_37120", "taxa_desemprego_pct"),
-        "taxa_endividamento": ("iso_37120", "taxa_endividamento_pct"),
-        "despesas_capital": ("iso_37120", "despesas_capital_pct"),
-        "receita_propria": ("iso_37120", "receita_propria_pct"),
-        "orcamento_per_capita": ("iso_37120", "orcamento_per_capita"),
-        # ... adicionar mais conforme necessário
-    }
-    
-    for key_frontend, (iso_classe, field_name) in mapeamentos.items():
-        if key_frontend in data and data[key_frontend]:
-            iso_obj = getattr(resultado, iso_classe)
-            setattr(iso_obj, field_name, float(data[key_frontend]))
-    
-    logger.debug(f"✅ Conversão de frontend: bombeiros={resultado.iso_37120.bombeiros_100k}, iluminacao={resultado.iso_37122.iluminacao_telegestao_pct}")
-    
-    return resultado
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# ENDPOINT: GET /cities - Lista de Cidades
+# ═════════════════════════════════════════════════════════════════════════════
 
+@topsis_router.get("/cities", response_model=List[Dict[str, Any]])
+async def get_cities(db: Session = Depends(get_db)):
+    """
+    Retorna lista de todas as cidades disponíveis para ranking.
+    
+    Returns:
+        Lista com codigo_ibge e nome de cada cidade
+    """
+    try:
+        result = []
+
+        # 1) Cidades presentes nos dados manuais
+        for city in db.query(CityManualData.codigo_ibge, CityManualData.nome_cidade).all():
+            result.append({
+                "codigo_ibge": str(city.codigo_ibge),
+                "nome": city.nome_cidade or f"Cidade {city.codigo_ibge}"
+            })
+
+        # 2) Capitais + cidade fictícia de testes
+        result.extend(CAPITAIS_BRASILEIRAS)
+
+        # Remover duplicatas e ordenar por nome
+        result = sorted(_unique_cities(result), key=lambda item: item["nome"])
+        
+        logger.info(f"✅ Retornando {len(result)} cidades disponíveis")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar cidades: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao listar cidades")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ENDPOINT: GET /indicators - Lista de Indicadores
+# ═════════════════════════════════════════════════════════════════════════════
+
+@topsis_router.get("/indicators", response_model=List[Dict[str, Any]])
+async def get_indicators():
+    """
+    Retorna metadados de todos os 50 indicadores TOPSIS.
+    
+    Returns:
+        Lista com índice, nome e impacto (maximize/minimize) de cada indicador
+    """
+    try:
+        indicators = []
+        for idx, (nome, impacto) in enumerate(zip(INDICADORES_NOMES, IMPACTOS_TOTAIS)):
+            indicators.append({
+                "indice": idx,
+                "nome": nome,
+                "impacto": "maximize" if impacto == 1 else "minimize",
+                "peso": PESOS_EQUITATIVOS[idx],
+                "categoria": (
+                    "ISO 37120" if idx < 18 else (
+                        "ISO 37122" if idx < 34 else "ISO 37123 + Sendai"
+                    )
+                )
+            })
+        
+        logger.info(f"✅ Retornando {len(indicators)} indicadores")
+        return indicators
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar indicadores: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao listar indicadores")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ENDPOINT: GET /snapshots/{codigo_ibge} - Histórico de Snapshots
+# ═════════════════════════════════════════════════════════════════════════════
+
+@topsis_router.get("/snapshots/{codigo_ibge}", response_model=List[Dict[str, Any]])
+async def get_city_snapshots(codigo_ibge: str, db: Session = Depends(get_db)):
+    """
+    Retorna histórico de snapshots calculados para uma cidade.
+    
+    Args:
+        codigo_ibge: Código IBGE da cidade (8 dígitos)
+    
+    Returns:
+        Lista de snapshots com data_calculo, indicadores e fonte de dados
+    """
+    try:
+        # Validar formato do código IBGE
+        if not codigo_ibge.isdigit() or len(codigo_ibge) != 8:
+            raise HTTPException(status_code=400, detail="Código IBGE deve ter 8 dígitos")
+        
+        # Buscar snapshots no banco (ordenado por data descendente)
+        snapshots = db.query(IndicatorSnapshot).filter(
+            IndicatorSnapshot.codigo_ibge == codigo_ibge
+        ).order_by(IndicatorSnapshot.data_calculo.desc()).all()
+        
+        result = [
+            {
+                "data_calculo": s.data_calculo.isoformat(),
+                "periodo_referencia": s.periodo_referencia,
+                "fonte_dados": s.fonte_dados,
+                "quantidade_indicadores": len(s.valores_indicadores) if s.valores_indicadores else 0,
+                "valores_indicadores": s.valores_indicadores or []
+            }
+            for s in snapshots
+        ]
+        
+        logger.info(f"✅ Retornando {len(result)} snapshots para cidade {codigo_ibge}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro ao buscar snapshots para {codigo_ibge}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar snapshots históricos")

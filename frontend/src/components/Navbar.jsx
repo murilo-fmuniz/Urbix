@@ -38,7 +38,7 @@ function Navbar() {
           </div>
 
           {/* Navigation Links - Centro/Direita */}
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 flex-wrap justify-end">
             
             {/* Visão Geral */}
             <Link
@@ -64,13 +64,21 @@ function Navbar() {
               📜 Histórico
             </Link>
 
+            {/* Administração visível no header */}
+            <Link
+              to="/admin/cidades"
+              className="px-3 py-2 rounded-md text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 transition-colors"
+            >
+              📝 Administração
+            </Link>
+
             {/* Dropdown Administração */}
             <div className="relative group">
               <button
                 onClick={toggleAdminDropdown}
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 transition-colors flex items-center gap-1"
+                className="px-3 py-2 rounded-md text-sm font-medium text-orange-700 bg-white border border-orange-200 hover:bg-orange-50 transition-colors flex items-center gap-1"
               >
-                ⚙️ Administração
+                ⚙️ Mais opções
                 <span
                   className={`transform transition-transform ${
                     isAdminDropdownOpen ? 'rotate-180' : ''
@@ -93,7 +101,7 @@ function Navbar() {
                   onClick={closeAdminDropdown}
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                 >
-                  🏙️ Gestão de Cidades
+                  📝 Dados Manuais da Cidade
                 </Link>
                 <Link
                   to="/admin/indicadores"

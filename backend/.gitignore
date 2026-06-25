@@ -36,6 +36,7 @@ env/
 
 # Data
 data/
+backend/*-*.json
 
 # IDE
 .vscode/
@@ -62,3 +63,5 @@ backup_sqlite.json
 # Logs
 *.log
 logs/
+
+tests/

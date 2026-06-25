@@ -1,15 +1,124 @@
 import axios from 'axios';
 
+// ==========================================
+// API BASE CONFIGURATION
+// ==========================================
+
+// Use environment variable or default to localhost for development
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30s timeout for API calls
 });
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Handle specific HTTP errors
+      console.error(`API Error ${error.response.status}:`, error.response.data);
+    } else if (error.request) {
+      console.error('No response from API:', error.request);
+    } else {
+      console.error('API Request Error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ==========================================
+// HEALTH CHECK
+// ==========================================
+
+/**
+ * Verifica se a API está disponível e retorna status
+ * 
+ * @returns {Promise<{status, timestamp, version}>}
+ */
+export const checkHealth = async () => {
+  try {
+    const response = await api.get('/health');
+    return response.data;
+  } catch (error) {
+    console.error('Health check failed:', error.message);
+    throw new Error('API is not available');
+  }
+};
+
+// ==========================================
+// CITIES - GET Lista de Cidades
+// ==========================================
+
+/**
+ * Obtém lista de todas as cidades disponíveis
+ * 
+ * @returns {Promise<Array<{codigo_ibge, nome}>>}
+ */
+export const getCities = async () => {
+  try {
+    const response = await api.get('/topsis/cities');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch cities:', error.message);
+    throw new Error('Falha ao carregar lista de cidades');
+  }
+};
+
+// ==========================================
+// INDICATORS - GET Lista de Indicadores
+// ==========================================
+
+/**
+ * Obtém lista de todos os 50 indicadores com metadados
+ * 
+ * @returns {Promise<Array<{indice, nome, impacto, peso, categoria}>>}
+ */
+export const getIndicators = async () => {
+  try {
+    const response = await api.get('/topsis/indicators');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch indicators:', error.message);
+    throw new Error('Falha ao carregar indicadores');
+  }
+};
+
+// ==========================================
+// SNAPSHOTS - GET Histórico de Indicadores
+// ==========================================
+
+/**
+ * Obtém histórico de snapshots calculados para uma cidade
+ * 
+ * @param {string} codigoIBGE - Código IBGE da cidade (8 dígitos)
+ * @returns {Promise<Array<{data_calculo, periodo_referencia, fonte_dados, valores_indicadores}>>}
+ */
+export const getSnapshots = async (codigoIBGE) => {
+  try {
+    if (!codigoIBGE || codigoIBGE.length !== 8) {
+      throw new Error('Código IBGE deve ter 8 dígitos');
+    }
+    
+    const response = await api.get(`/topsis/snapshots/${codigoIBGE}`);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 400) {
+      throw new Error('Código IBGE inválido');
+    }
+    console.error('Failed to fetch snapshots:', error.message);
+    throw new Error('Falha ao carregar histórico');
+  }
+};
 
 // ==========================================
 // INDICADORES - GET (Consulta)
 // ==========================================
+
 
 export const getIndicadores = async (filtros = {}) => {
   const params = new URLSearchParams();
@@ -149,6 +258,17 @@ export const obterDadosManualCidade = async (codigoIBGE) => {
  */
 export const atualizarDadosManualCidade = async (codigoIBGE, data) => {
   const response = await api.patch(`/manual-data/${codigoIBGE}`, data);
+  return response.data;
+};
+
+/**
+ * Exclui os dados manuais de uma cidade
+ *
+ * @param {string} codigoIBGE - Código IBGE da cidade
+ * @returns {Promise<Object>}
+ */
+export const excluirDadosManualCidade = async (codigoIBGE) => {
+  const response = await api.delete(`/manual-data/${codigoIBGE}`);
   return response.data;
 };
 

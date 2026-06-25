@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import RankingPage from './pages/RankingPage';
 import AboutPage from './pages/AboutPage';
+import AdminCidadesPage from './pages/AdminCidadesPage';
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/about" element={<AboutPage />} />
               
-              {/* Placeholder routes for Admin pages */}
+              {/* Admin pages */}
               <Route path="/nova-avaliacao" element={<NovaAvaliacaoPage />} />
               <Route path="/historico" element={<HistoricoPage />} />
               <Route path="/admin/cidades" element={<AdminCidadesPage />} />
@@ -47,13 +48,6 @@ const HistoricoPage = () => (
   <div>
     <h1 className="text-3xl font-bold text-gray-900">Histórico de Rankings</h1>
     <p className="text-gray-600 mt-2">Visualize todos os rankings gerados</p>
-  </div>
-);
-
-const AdminCidadesPage = () => (
-  <div>
-    <h1 className="text-3xl font-bold text-gray-900">Gestão de Cidades</h1>
-    <p className="text-gray-600 mt-2">Gerencie as cidades cadastradas no sistema</p>
   </div>
 );
 

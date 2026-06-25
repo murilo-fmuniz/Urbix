@@ -7,6 +7,9 @@ import sys
 sys.path.insert(0, 'd:\\Docs\\Faculdade\\IC\\Urbix\\backend')
 
 import asyncio
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 from app.database import SessionLocal
 from app.routers.topsis import processar_cidade_real
 from app.schemas import ManualCityIndicators
@@ -39,14 +42,14 @@ async def test_local():
             print(f"  - Indicadores com dados: {nao_zero}/{len(indicadores)}")
             print(f"  - Cobertura: {nao_zero/len(indicadores)*100:.1f}%")
             
-            # Mostrar alguns valores
-            print(f"\n  Valores da lista plana (primeiros 20):")
-            for i, v in enumerate(indicadores[:20]):
-                print(f"    [{i:2d}] {v:.4f}")
-                
-            print(f"\n  Valores da lista plana (últimos 10):")
-            for i, v in enumerate(indicadores[-10:], start=len(indicadores)-10):
-                print(f"    [{i:2d}] {v:.4f}")
+            # Mostrar todos os índices com dados (não-zero)
+            print(f"\n  Índices com dados (não-zero):")
+            non_zero = [(i, v) for i, v in enumerate(indicadores) if v != 0]
+            if non_zero:
+                for idx, val in non_zero:
+                    print(f"    [{idx:2d}] {val:.4f}")
+            else:
+                print("    (nenhum)")
         else:
             print("ERRO: Processamento falhou")
         

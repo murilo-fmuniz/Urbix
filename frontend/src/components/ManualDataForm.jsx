@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { salvarDadosManualCidade, obterDadosManualCidade } from '../services/api';
+import { salvarDadosManualCidade, obterDadosManualCidade, excluirDadosManualCidade } from '../services/api';
 import './ManualDataForm.css';
 
 /**
@@ -123,14 +123,51 @@ const INDICADORES_INICIAL = {
   iso_37123: Object.fromEntries(INDICADORES_CONFIG.iso_37123.campos.map(c => [c.key, ''])),
 };
 
+const IS_PERCENTUAL_FIELD = (campo) => campo.unidade.includes('%') || campo.key.endsWith('_pct');
+
+const normalizarValorParaExibicao = (campo, value) => {
+  if (value === '' || value === null || value === undefined) {
+    return '';
+  }
+
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) {
+    return value;
+  }
+
+  if (IS_PERCENTUAL_FIELD(campo) && numericValue >= 0 && numericValue <= 1) {
+    return Number((numericValue * 100).toFixed(2));
+  }
+
+  return numericValue;
+};
+
+const normalizarIndicadoresParaFormulario = (dados = {}) => {
+  const resultado = {
+    iso_37120: { ...INDICADORES_INICIAL.iso_37120 },
+    iso_37122: { ...INDICADORES_INICIAL.iso_37122 },
+    iso_37123: { ...INDICADORES_INICIAL.iso_37123 },
+  };
+
+  Object.entries(INDICADORES_CONFIG).forEach(([isoKey, isoConfig]) => {
+    const valoresIso = dados?.[isoKey] || {};
+
+    isoConfig.campos.forEach((campo) => {
+      resultado[isoKey][campo.key] = normalizarValorParaExibicao(campo, valoresIso[campo.key]);
+    });
+  });
+
+  return resultado;
+};
+
 // ==========================================
 // COMPONENTE PRINCIPAL
 // ==========================================
 
-function ManualDataForm() {
+function ManualDataForm({ defaultCityPreset = null }) {
   // State - Identificação
-  const [codigoIBGE, setCodigoIBGE] = useState('');
-  const [nomeCidade, setNomeCidade] = useState('');
+  const [codigoIBGE, setCodigoIBGE] = useState(defaultCityPreset?.codigo_ibge || '');
+  const [nomeCidade, setNomeCidade] = useState(defaultCityPreset?.nome_cidade || '');
   const [usuarioAtualizou, setUsuarioAtualizou] = useState('');
   
   // State - Indicadores (ANINHADOS por ISO)
@@ -156,14 +193,10 @@ function ManualDataForm() {
         const response = await obterDadosManualCidade(codigoIBGE);
         
         if (response.success && response.data) {
-          const dados = response.data.dados || {};
+          const dados = response.data.indicadores_manuais || response.data.dados || {};
           
           // Mapear dados do backend para o novo formato aninhado
-          setIndicadores({
-            iso_37120: dados.iso_37120 || INDICADORES_INICIAL.iso_37120,
-            iso_37122: dados.iso_37122 || INDICADORES_INICIAL.iso_37122,
-            iso_37123: dados.iso_37123 || INDICADORES_INICIAL.iso_37123,
-          });
+          setIndicadores(normalizarIndicadoresParaFormulario(dados));
           
           setNomeCidade(response.data.nome_cidade || '');
           setIsEditing(true);
@@ -281,14 +314,40 @@ function ManualDataForm() {
   // ==========================================
 
   const handleLimpar = () => {
-    setCodigoIBGE('');
-    setNomeCidade('');
+    setCodigoIBGE(defaultCityPreset?.codigo_ibge || '');
+    setNomeCidade(defaultCityPreset?.nome_cidade || '');
     setUsuarioAtualizou('');
     setIndicadores(INDICADORES_INICIAL);
     setAbaSelecionada('iso_37120');
     setIsEditing(false);
     setMessage('');
     setError('');
+  };
+
+  const handleExcluir = async () => {
+    if (!codigoIBGE || codigoIBGE.length !== 7) {
+      setError('❌ Código IBGE inválido para exclusão');
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      `Tem certeza que deseja excluir os dados manuais de ${nomeCidade || codigoIBGE}? Essa ação não pode ser desfeita.`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setLoading(true);
+      setError('');
+      setMessage('');
+      await excluirDadosManualCidade(codigoIBGE);
+      setMessage(`✅ Dados manuais de ${nomeCidade || codigoIBGE} excluídos com sucesso.`);
+      handleLimpar();
+    } catch (err) {
+      setError(`❌ Erro ao excluir dados: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ==========================================
@@ -441,6 +500,18 @@ function ManualDataForm() {
           >
             🔄 Limpar Formulário
           </button>
+
+          {isEditing && (
+            <button
+              type="button"
+              onClick={handleExcluir}
+              disabled={loading}
+              className="btn btn-secondary"
+              style={{ background: '#ef4444', color: 'white' }}
+            >
+              🗑️ Excluir Dados
+            </button>
+          )}
         </div>
 
         {isEditing && (

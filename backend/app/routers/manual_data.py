@@ -29,6 +29,76 @@ logger = logging.getLogger(__name__)
 manual_data_router = APIRouter(prefix="/manual-data", tags=["Manual Data"])
 
 
+def _normalizar_dados_manuais(dados):
+    """Converte payload de dados manuais para dict serializável."""
+    if dados is None:
+        return {}
+    if hasattr(dados, "model_dump"):
+        return dados.model_dump()
+    if isinstance(dados, dict):
+        return dados
+    return {}
+
+
+# ==========================================
+# SÉRIE HISTÓRICA - RANKINGS (MUST COME FIRST before /{codigo_ibge} catch-all)
+# ==========================================
+
+@manual_data_router.get("/rankings/historico", response_model=List[RankingSnapshotResponse])
+async def obter_historico_rankings(
+    limit: int = Query(24, ge=1, le=500),  # 24 = ~2 anos de dados mensais
+    db: Session = Depends(get_db)
+):
+    """
+    Obtém série histórica dos rankings TOPSIS calculados.
+    Permite análise de evolução das cidades ao longo do tempo.
+    
+    Args:
+        limit: Número máximo de snapshots (padrão 24 = ~2 anos)
+    
+    Returns:
+        Lista de RankingSnapshotResponse ordenada por data descendente
+    """
+    snapshots = db.query(RankingSnapshot).order_by(
+        RankingSnapshot.data_calculo.desc()
+    ).limit(limit).all()
+    
+    if not snapshots:
+        raise HTTPException(
+            status_code=404,
+            detail="Nenhum histórico de rankings encontrado"
+        )
+    
+    return snapshots
+
+
+@manual_data_router.get("/rankings/periodo/{periodo_referencia}", response_model=RankingSnapshotResponse)
+async def obter_ranking_por_periodo(
+    periodo_referencia: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtém ranking de um período específico (ex: "2025-03").
+    
+    Args:
+        periodo_referencia: Período em formato YYYY-MM
+    
+    Returns:
+        RankingSnapshotResponse do período especificado
+    """
+    snapshot = db.query(RankingSnapshot).filter(
+        RankingSnapshot.periodo_referencia == periodo_referencia
+    ).first()
+    
+    if not snapshot:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhum ranking encontrado para período {periodo_referencia}"
+        )
+    
+    return snapshot
+
+
 # ==========================================
 # DADOS MANUAIS - CRUD
 # ==========================================
@@ -56,7 +126,7 @@ async def criar_ou_atualizar_dados_manuais(
     """
     try:
         # Converter indicadores para dicionário (se fornecido)
-        indicadores_dict = data.dados.model_dump() if data.dados else {}
+        indicadores_dict = _normalizar_dados_manuais(data.dados)
         
         # Buscar dados existentes
         existing = db.query(CityManualData).filter(
@@ -184,7 +254,7 @@ async def atualizar_dados_manuais(
     # Se 'dados' foi fornecido, atualizar apenas os campos que vieram nele
     if data.dados:
         # Converter ManualCityIndicators para dict
-        novos_indicadores = data.dados.model_dump(exclude_unset=False)
+        novos_indicadores = _normalizar_dados_manuais(data.dados)
         
         # Fazer merge: manter indicadores existentes + sobrescrever com novos
         dados_novos = {**dados_antigos, **novos_indicadores}
@@ -222,6 +292,32 @@ async def atualizar_dados_manuais(
     logger.info(f"✅ Dados manuais atualizados via PATCH para {codigo_ibge}")
     
     return dados
+
+
+@manual_data_router.delete("/{codigo_ibge}")
+async def excluir_dados_manuais(
+    codigo_ibge: str,
+    db: Session = Depends(get_db)
+):
+    """Exclui os dados manuais de uma cidade e seu histórico associado."""
+    dados = db.query(CityManualData).filter(
+        CityManualData.codigo_ibge == codigo_ibge
+    ).first()
+
+    if not dados:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dados manuais não encontrados para IBGE {codigo_ibge}"
+        )
+
+    db.delete(dados)
+    db.commit()
+    logger.info(f"🗑️ Dados manuais excluídos para {codigo_ibge}")
+
+    return {
+        "success": True,
+        "message": f"Dados manuais da cidade {codigo_ibge} excluídos com sucesso"
+    }
 
 
 # ==========================================
@@ -284,61 +380,3 @@ async def obter_historico_indicadores(
     
     return snapshots
 
-
-# ==========================================
-# SÉRIE HISTÓRICA - RANKINGS
-# ==========================================
-
-@manual_data_router.get("/rankings/historico", response_model=List[RankingSnapshotResponse])
-async def obter_historico_rankings(
-    limit: int = Query(24, ge=1, le=500),  # 24 = ~2 anos de dados mensais
-    db: Session = Depends(get_db)
-):
-    """
-    Obtém série histórica dos rankings TOPSIS calculados.
-    Permite análise de evolução das cidades ao longo do tempo.
-    
-    Args:
-        limit: Número máximo de snapshots (padrão 24 = ~2 anos)
-    
-    Returns:
-        Lista de RankingSnapshotResponse ordenada por data descendente
-    """
-    snapshots = db.query(RankingSnapshot).order_by(
-        RankingSnapshot.data_calculo.desc()
-    ).limit(limit).all()
-    
-    if not snapshots:
-        raise HTTPException(
-            status_code=404,
-            detail="Nenhum histórico de rankings encontrado"
-        )
-    
-    return snapshots
-
-
-@manual_data_router.get("/rankings/periodo/{periodo_referencia}", response_model=RankingSnapshotResponse)
-async def obter_ranking_por_periodo(
-    periodo_referencia: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Obtém ranking de um período específico (ex: "2025-03").
-    
-    Args:
-        periodo_referencia: Período em formato YYYY-MM
-    
-    Returns:
-        RankingSnapshotResponse do período especificado
-    """
-    snapshot = db.query(RankingSnapshot).filter(
-        RankingSnapshot.periodo_referencia == periodo_referencia
-    ).first()
-    
-    if not snapshot:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Nenhum ranking encontrado para período {periodo_referencia}"
-        )
-    
-    return snapshot

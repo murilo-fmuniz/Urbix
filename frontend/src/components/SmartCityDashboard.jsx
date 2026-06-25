@@ -11,6 +11,7 @@ import {
   Shield,
 } from 'lucide-react';
 import IndicatorsComparisonChart from './IndicatorsComparisonChart';
+import { getHybridRanking } from '../services/api';
 import { INDICADORES_CONFIG, INDICADORES_INICIAL } from './ManualDataForm';
 
 // ✅ GERAR TABS DINAMICAMENTE A PARTIR DE INDICADORES_CONFIG
@@ -158,25 +159,8 @@ export default function SmartCityDashboard() {
 
       console.log('📤 Enviando payload (47 indicadores):', JSON.stringify(payload, null, 2));
 
-      const response = await fetch(
-        'http://localhost:8000/api/v1/topsis/ranking-hibrido',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.detail || `Erro ${response.status}: ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
+      // 🔗 Use centralized API client
+      const data = await getHybridRanking(payload);
       console.log('✅ Resposta do servidor:', data);
 
       setResults(data);
