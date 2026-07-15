@@ -9,6 +9,8 @@ import httpx
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
+from app.services.ibge_catalog import find_municipality_by_code
+
 logger = logging.getLogger(__name__)
 
 # Cache simples em memória (para não sobrecarregar TSE)
@@ -70,18 +72,8 @@ async def _get_tse_fallback(codigo_ibge: str) -> Dict[str, Any]:
     TODO: Substituir por API real quando TSE disponibilizar
     """
     
-    # Mapeamento: IBGE code → Estado
-    estado_map = {
-        # São Paulo
-        "3550308": "SP",  # São Paulo
-        "3509007": "SP",  # Campinas
-        "3513801": "SP",  # Ribeirão Preto
-        # Paraná
-        "4101408": "PR",  # Apucarana
-        "4113700": "PR",  # Londrina
-        "4115200": "PR",  # Maringá
-        "4106902": "PR",  # Curitiba
-    }
+    municipio = find_municipality_by_code(codigo_ibge)
+    estado = municipio.get("uf_abbr") if municipio else None
     
     # Médias estaduais típicas (fonte: TSE histórico)
     estaduais = {
@@ -101,7 +93,6 @@ async def _get_tse_fallback(codigo_ibge: str) -> Dict[str, Any]:
         "mulheres_eleitas_pct": 31.0,
     }
     
-    estado = estado_map.get(codigo_ibge, None)
     dados_estado = estaduais.get(estado, defaults) if estado else defaults
     
     return {
@@ -119,7 +110,14 @@ async def test_tse():
     print("TESTE: Integração TSE")
     print("=" * 70)
     
-    cidades = ["4101408", "3550308"]  # Apucarana, São Paulo
+    cidades = [
+        item["codigo_ibge"]
+        for item in (
+            find_municipality_by_code("4101408"),
+            find_municipality_by_code("3550308"),
+        )
+        if item
+    ]
     
     for codigo in cidades:
         resultado = await get_tse_elections(codigo)

@@ -100,8 +100,8 @@ export const getIndicators = async () => {
  */
 export const getSnapshots = async (codigoIBGE) => {
   try {
-    if (!codigoIBGE || codigoIBGE.length !== 8) {
-      throw new Error('Código IBGE deve ter 8 dígitos');
+    if (!codigoIBGE || !/^\d{7,8}$/.test(String(codigoIBGE))) {
+      throw new Error('Código IBGE deve ter 7 ou 8 dígitos');
     }
     
     const response = await api.get(`/topsis/snapshots/${codigoIBGE}`);

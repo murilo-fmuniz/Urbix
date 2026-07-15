@@ -129,27 +129,13 @@ function Sidebar() {
               ======================================== */}
 
           {/* Nova Avaliação Smart (PRIMARY ACTION) */}
-          <div className="pt-2" onClick={() => setIsMobileOpen(false)}>
-            <div className="relative">
-              {/* Background gradient glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg opacity-0 group-hover:opacity-20 blur transition-opacity" />
-              
-              <Link
-                to="/nova-avaliacao"
-                className={`
-                  relative flex items-center gap-3 px-4 py-3 rounded-lg
-                  background-gradient-to-r from-blue-500 to-purple-600
-                  text-white font-semibold shadow-lg
-                  hover:shadow-xl hover:scale-105
-                  transition-all duration-200
-                  transform
-                  ${isActive('/nova-avaliacao') ? 'ring-2 ring-blue-300' : ''}
-                `}
-              >
-                <Sparkles size={20} className="min-w-[20px]" />
-                <span>Nova Avaliação</span>
-              </Link>
-            </div>
+
+          <div onClick={() => setIsMobileOpen(false)}>
+            <NavItem
+              to="/ranking"
+              icon={Sparkles}
+              label="Nova Avaliação"
+            />
           </div>
 
           {/* Histórico de Rankings */}

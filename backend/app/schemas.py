@@ -353,10 +353,10 @@ class ManualDataHistoryResponse(BaseModel):
 # ==========================================
 
 class IndicatorSnapshotResponse(BaseModel):
-    """Response com snapshot de indicadores de um ponto no tempo (47 indicadores ISO em JSON)"""
+    """Response com snapshot de indicadores de um ponto no tempo (50 valores em JSON)"""
     id: int
     codigo_ibge: str
-    valores_indicadores: dict  # 47 indicadores como lista de floats em JSON
+    valores_indicadores: List[float]  # 50 indicadores como lista de floats em JSON
     data_calculo: datetime
     fonte_dados: str  # "apis", "manual", "hibrido"
     periodo_referencia: str

@@ -85,7 +85,12 @@ class LocalDataService:
         cls._load_cache()
         
         # Normalizar ID
-        city_id_normalized = str(city_id).strip().zfill(7)
+        city_id_str = str(city_id).strip()
+        if not city_id_str:
+            logger.debug("⚠️  ID vazio informado para busca de município")
+            return None
+
+        city_id_normalized = city_id_str.zfill(7)
         
         # Buscar no cache
         municipios = cls._cache.get('municipios', {})

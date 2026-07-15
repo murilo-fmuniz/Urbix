@@ -39,11 +39,19 @@ from datetime import datetime, timedelta
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
+from app.services.ibge_catalog import build_municipality_options
+
 # Diretórios
 DATA_PLANILHAS_DIR = BACKEND_DIR / "data" / "planilhas"
 OUTPUT_FILE = BACKEND_DIR / "app" / "data" / "indicators_master.json"
 CACHE_DIR = BACKEND_DIR / "data" / "cache_api"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+IBGE_CATALOG_PATH = (
+    DATA_PLANILHAS_DIR
+    / "codigos ibge"
+    / "RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.ods"
+)
 
 CACHE_CAGED_FILE = CACHE_DIR / "caged_cache.json"
 CACHE_DATASUS_FILE = CACHE_DIR / "datasus_cache.json"
@@ -57,47 +65,112 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# CAPITAIS BRASILEIRAS (27 + referência)
+# CAPITAIS BRASILEIRAS + CLUSTER DE REFERÊNCIA
 # ============================================================================
 
-# Lista das 27 capitais + 2 do cluster de referência (Londrina, Apucarana não são capitais)
-CAPITAIS_IBGE = {
-    "1100015": "Porto Velho",           # Rondônia
-    "1200060": "Rio Branco",            # Acre
-    "1302603": "Manaus",                # Amazonas
-    "1400100": "Macapá",                # Amapá
-    "1500029": "Boa Vista",             # Roraima
-    "1600055": "Belém",                 # Pará
-    "1500138": "Palmas",                # Tocantins
-    "2100044": "São Luís",              # Maranhão
-    "2211001": "Teresina",              # Piauí
-    "2304400": "Fortaleza",             # Ceará
-    "2408102": "Natal",                 # Rio Grande do Norte
-    "2507507": "João Pessoa",           # Paraíba
-    "2611606": "Recife",                # Pernambuco
-    "2704302": "Maceió",                # Alagoas
-    "2800308": "Aracaju",               # Sergipe
-    "2927408": "Salvador",              # Bahia
-    "3100104": "Brasília",              # Distrito Federal
-    "3106200": "Goiânia",               # Goiás
-    "3018402": "Belo Horizonte",        # Minas Gerais
-    "3500105": "São Paulo",             # São Paulo
-    "3304557": "Rio de Janeiro",        # Rio de Janeiro
-    "4106902": "Curitiba",              # Paraná
-    "4204402": "Florianópolis",         # Santa Catarina
-    "4305108": "Porto Alegre",          # Rio Grande do Sul
-    "5002704": "Campo Grande",          # Mato Grosso do Sul
-    "5103403": "Cuiabá",                # Mato Grosso
-    "5208707": "Brasília",              # Brasília (duplicado, ajuste conforme needed)
-}
+# Catálogo IBGE completo para nomes oficiais dos municípios
+def load_ibge_municipios_catalog() -> Dict[str, str]:
+    """Carrega o catálogo de municípios do IBGE a partir do arquivo .ods local."""
+    catalog: Dict[str, str] = {}
 
-# Cluster de Referência (adicional ao de capitais)
-CLUSTER_REFERENCIA = {
-    "4101408": "Apucarana",
-    "4113700": "Londrina",
-}
+    if not IBGE_CATALOG_PATH.exists():
+        logger.warning(f"⚠️  Catálogo IBGE não encontrado: {IBGE_CATALOG_PATH}")
+        return catalog
 
-# Cidades válidas para filtro (agora inclui todas as 5570 municípios brasileiros)
+    try:
+        df = pd.read_excel(
+            IBGE_CATALOG_PATH,
+            sheet_name=0,
+            skiprows=6,
+            engine="odf",
+            dtype=str,
+        )
+
+        col_codigo = None
+        col_nome = None
+
+        for col in df.columns:
+            col_norm = str(col).strip().lower()
+            if col_codigo is None and "código município completo" in col_norm:
+                col_codigo = col
+            if col_nome is None and "nome_município" in col_norm:
+                col_nome = col
+
+        if col_codigo is None or col_nome is None:
+            logger.warning(
+                f"⚠️  Catálogo IBGE: colunas esperadas não encontradas. "
+                f"Colunas disponíveis: {list(df.columns)[:10]}"
+            )
+            return catalog
+
+        for _, row in df.iterrows():
+            codigo = str(row.get(col_codigo, "")).strip()
+            nome = str(row.get(col_nome, "")).strip()
+
+            if not codigo or not nome:
+                continue
+
+            if codigo.endswith(".0"):
+                codigo = codigo[:-2]
+
+            try:
+                codigo = str(int(float(codigo))).zfill(7)
+            except Exception:
+                continue
+
+            catalog[codigo] = nome
+
+        logger.info(f"✅ Catálogo IBGE carregado: {len(catalog)} municípios")
+        return catalog
+
+    except Exception as e:
+        logger.warning(f"⚠️  Falha ao carregar catálogo IBGE: {type(e).__name__}: {str(e)}")
+        return catalog
+
+
+IBGE_MUNICIPIOS = load_ibge_municipios_catalog()
+
+_CAPITAIS_NOMES = [
+    "Porto Velho",
+    "Rio Branco",
+    "Manaus",
+    "Macapá",
+    "Boa Vista",
+    "Belém",
+    "Palmas",
+    "São Luís",
+    "Teresina",
+    "Fortaleza",
+    "Natal",
+    "João Pessoa",
+    "Recife",
+    "Maceió",
+    "Aracaju",
+    "Salvador",
+    "Belo Horizonte",
+    "Vitória",
+    "Rio de Janeiro",
+    "São Paulo",
+    "Curitiba",
+    "Florianópolis",
+    "Porto Alegre",
+    "Campo Grande",
+    "Cuiabá",
+    "Goiânia",
+    "Brasília",
+]
+
+_CLUSTER_REFERENCIA_NOMES = ["Apucarana", "Londrina"]
+
+def _build_city_map(names: List[str]) -> Dict[str, str]:
+    cities = build_municipality_options(names)
+    return {city["codigo_ibge"]: city["nome"].split(" - ")[0] for city in cities}
+
+
+CAPITAIS_IBGE = _build_city_map(_CAPITAIS_NOMES)
+CLUSTER_REFERENCIA = _build_city_map(_CLUSTER_REFERENCIA_NOMES)
+
+# Cidades válidas para filtro operacional das APIs (mantém o cluster de referência)
 CIDADES_VALIDAS = {**CAPITAIS_IBGE, **CLUSTER_REFERENCIA}
 
 logger.info(f"📍 Modo de operação: QUALQUER MUNICÍPIO BRASILEIRO")
@@ -389,6 +462,190 @@ class DataProcessor:
             "tdi_2025",
             "Taxa distorção"  # Possível nome da coluna
         )
+
+    def process_snis(self) -> None:
+        """Processa dados do SNIS (Água e Resíduos Sólidos)."""
+        logger.info("\n💧 Processando dados do SNIS (Água e Resíduos)...")
+
+        try:
+            base_path = getattr(self, "base_path", DATA_PLANILHAS_DIR.parent)
+            planilhas_path = base_path / "planilhas"
+
+            def _clean_numeric(value):
+                if value is None:
+                    return None
+
+                value_str = str(value).strip().replace("%", "").replace(" ", "")
+                if "," in value_str and "." in value_str:
+                    value_str = value_str.replace(".", "").replace(",", ".")
+                elif "," in value_str:
+                    value_str = value_str.replace(",", ".")
+
+                numeric = pd.to_numeric(value_str, errors="coerce")
+                if pd.isna(numeric):
+                    return None
+                return float(numeric)
+
+            def _clean_ibge(value) -> str:
+                if value is None:
+                    return ""
+
+                if isinstance(value, float):
+                    if pd.isna(value):
+                        return ""
+                    value = int(value)
+
+                value_str = str(value).strip()
+                if value_str.endswith(".0"):
+                    value_str = value_str[:-2]
+
+                try:
+                    return str(int(float(value_str))).zfill(7)
+                except Exception:
+                    return value_str.zfill(7) if value_str.isdigit() else ""
+
+            # ============================================================
+            # 1) ÁGUA - CSV original do SNIS
+            # ============================================================
+            try:
+                logger.info("   💧 Leitura da água: br_mdr_snis_municipio_agua_esgoto.csv")
+
+                agua_csv_path = (
+                    planilhas_path
+                    / "SNIS"
+                    / "br_mdr_snis_municipio_agua_esgoto.csv"
+                    / "br_mdr_snis_municipio_agua_esgoto.csv"
+                )
+
+                if not agua_csv_path.exists():
+                    logger.warning(f"   ⚠️  SNIS Água: arquivo não encontrado: {agua_csv_path}")
+                else:
+                    df_agua = pd.read_csv(
+                        agua_csv_path,
+                        sep=";",
+                        dtype=str,
+                        on_bad_lines="skip",
+                        engine="python",
+                    )
+
+                    col_codigo_agua = None
+                    for col in df_agua.columns:
+                        if str(col).strip().lower() == "código do ibge":
+                            col_codigo_agua = col
+                            break
+
+                    col_agua = None
+                    for col in df_agua.columns:
+                        if str(col).strip().lower() == "indice_hidrometracao":
+                            col_agua = col
+                            break
+
+                    if col_codigo_agua is None:
+                        logger.warning(
+                            f"   ⚠️  SNIS Água: coluna 'CÓDIGO DO IBGE' não encontrada. "
+                            f"Colunas disponíveis: {list(df_agua.columns)[:12]}"
+                        )
+                    elif col_agua is None:
+                        logger.warning(
+                            f"   ⚠️  SNIS Água: coluna 'indice_hidrometracao' não encontrada. "
+                            f"Colunas disponíveis: {list(df_agua.columns)[:12]}"
+                        )
+                    else:
+                        count_agua = 0
+                        for _, row in df_agua.iterrows():
+                            try:
+                                codigo = _clean_ibge(row.get(col_codigo_agua, ""))
+                                if not codigo or not is_valid_city(codigo):
+                                    continue
+
+                                agua_val = _clean_numeric(row.get(col_agua))
+                                if agua_val is None:
+                                    continue
+
+                                if codigo not in self.data:
+                                    self.data[codigo] = {}
+
+                                self.data[codigo]["indice_hidrometracao"] = round(float(agua_val), 4)
+                                count_agua += 1
+                            except (ValueError, TypeError):
+                                continue
+
+                        logger.info(f"   ✅ SNIS Água: {count_agua} municípios com índice_hidrometracao")
+
+            except Exception as e:
+                logger.warning(f"   ⚠️  SNIS Água: erro não fatal: {type(e).__name__}: {str(e)}")
+
+            # ============================================================
+            # 2) RESÍDUOS - SINISA_RESIDUOS_Indicadores_2023.xlsx
+            # ============================================================
+            try:
+                logger.info("   🗑️ Leitura do SINISA de Resíduos (XLSX)...")
+
+                residuos_xlsx_path = (
+                    planilhas_path
+                    / "SINISA_RESIDUOS_Planilhas_2023"
+                    / "SINISA_RESIDUOS_Planilhas_2023"
+                    / "SINISA_RESIDUOS_Indicadores_2023.xlsx"
+                )
+
+                COL_IBGE_RESIDUOS = "CÓDIGO DO IBGE"
+                COL_LIXO = "IRS0004"
+                COL_DESTINACAO = "IRS3005"
+
+                if not residuos_xlsx_path.exists():
+                    logger.warning(f"   ⚠️  SINISA Resíduos: arquivo não encontrado: {residuos_xlsx_path}")
+                else:
+                    df_residuos = pd.read_excel(
+                        residuos_xlsx_path,
+                        sheet_name=0,
+                        skiprows=10,
+                        engine="openpyxl",
+                        dtype=str,
+                    )
+
+                    if COL_IBGE_RESIDUOS not in df_residuos.columns:
+                        logger.warning(
+                            f"   ⚠️  SINISA Resíduos: coluna '{COL_IBGE_RESIDUOS}' não encontrada. "
+                            f"Colunas disponíveis: {list(df_residuos.columns)[:12]}"
+                        )
+                    else:
+                        count_residuos = 0
+                        for _, row in df_residuos.iterrows():
+                            try:
+                                codigo = _clean_ibge(row.get(COL_IBGE_RESIDUOS, ""))
+                                if not codigo or not is_valid_city(codigo):
+                                    continue
+
+                                lixo_val = _clean_numeric(row.get(COL_LIXO))
+                                destinacao_val = _clean_numeric(row.get(COL_DESTINACAO))
+
+                                if codigo not in self.data:
+                                    self.data[codigo] = {}
+
+                                if lixo_val is not None:
+                                    self.data[codigo]["lixeiras_com_sensores"] = round(float(lixo_val), 4)
+
+                                if destinacao_val is not None:
+                                    self.data[codigo]["energia_de_residuos"] = round(float(destinacao_val), 4)
+
+                                if lixo_val is not None or destinacao_val is not None:
+                                    count_residuos += 1
+
+                            except (ValueError, TypeError):
+                                continue
+
+                        logger.info(
+                            f"   ✅ SINISA Resíduos: {count_residuos} municípios processados "
+                            f"(IRS0004 -> lixeiras_com_sensores, IRS3005 -> energia_de_residuos)"
+                        )
+
+            except Exception as e:
+                logger.warning(f"   ⚠️  SINISA Resíduos: erro não fatal: {type(e).__name__}: {str(e)}")
+
+            logger.info("   ✅ SNIS processado com sucesso")
+
+        except Exception as e:
+            logger.warning(f"   ⚠️  SNIS: erro não fatal, seguindo ETL normalmente: {type(e).__name__}: {str(e)}")
     
     def _process_xlsx_simple(
         self,
@@ -516,6 +773,7 @@ class DataProcessor:
                     "data_processamento": pd.Timestamp.now().isoformat(),
                     "total_municipios": len(self.data),
                     "cidades_validas": len(CIDADES_VALIDAS),
+                    "catalogo_ibge_municipios": len(IBGE_MUNICIPIOS),
                     "filtro": "Capitais brasileiras + Cluster de Referência"
                 },
                 "municipios": {}
@@ -524,7 +782,7 @@ class DataProcessor:
             # Adicionar dados dos municípios
             for codigo, indicadores in sorted(self.data.items()):
                 output_data["municipios"][codigo] = {
-                    "nome": CIDADES_VALIDAS.get(codigo, "Desconhecido"),
+                    "nome": IBGE_MUNICIPIOS.get(codigo, CIDADES_VALIDAS.get(codigo, "Desconhecido")),
                     "indicadores": indicadores
                 }
             
@@ -776,6 +1034,7 @@ class DataProcessor:
         self.process_ideb()
         self.process_atu()
         self.process_tdi()
+        self.process_snis()
         
         # Processadores de APIs (async)
         logger.info("\n" + "="*80)

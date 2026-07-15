@@ -40,6 +40,7 @@ from app.services.external_apis import (
     get_defesa_civil_disasters,
     get_cnj_corruption_convictions,
 )
+from app.services.ibge_catalog import build_municipality_options
 from app.database import SessionLocal, get_db
 from app.models import IndicatorSnapshot, RankingSnapshot, Indicador, CityManualData
 
@@ -49,36 +50,39 @@ logger = logging.getLogger(__name__)
 topsis_router = APIRouter(prefix="/topsis", tags=["TOPSIS"])
 
 
-CAPITAIS_BRASILEIRAS = [
-    {"codigo_ibge": "1100205", "nome": "Porto Velho"},
-    {"codigo_ibge": "1200401", "nome": "Rio Branco"},
-    {"codigo_ibge": "1302603", "nome": "Manaus"},
-    {"codigo_ibge": "1400100", "nome": "Boa Vista"},
-    {"codigo_ibge": "1501402", "nome": "Belém"},
-    {"codigo_ibge": "1600303", "nome": "Macapá"},
-    {"codigo_ibge": "1721000", "nome": "Palmas"},
-    {"codigo_ibge": "2105302", "nome": "São Luís"},
-    {"codigo_ibge": "2207702", "nome": "Teresina"},
-    {"codigo_ibge": "2304400", "nome": "Fortaleza"},
-    {"codigo_ibge": "2408102", "nome": "Natal"},
-    {"codigo_ibge": "2507507", "nome": "João Pessoa"},
-    {"codigo_ibge": "2607901", "nome": "Recife"},
-    {"codigo_ibge": "2704302", "nome": "Maceió"},
-    {"codigo_ibge": "2800308", "nome": "Aracaju"},
-    {"codigo_ibge": "2905701", "nome": "Salvador"},
-    {"codigo_ibge": "3106200", "nome": "Belo Horizonte"},
-    {"codigo_ibge": "3205309", "nome": "Vitória"},
-    {"codigo_ibge": "3304557", "nome": "Rio de Janeiro"},
-    {"codigo_ibge": "3550308", "nome": "São Paulo"},
-    {"codigo_ibge": "4106902", "nome": "Curitiba"},
-    {"codigo_ibge": "4205407", "nome": "Florianópolis"},
-    {"codigo_ibge": "4305108", "nome": "Porto Alegre"},
-    {"codigo_ibge": "5002704", "nome": "Campo Grande"},
-    {"codigo_ibge": "5103403", "nome": "Cuiabá"},
-    {"codigo_ibge": "5208707", "nome": "Goiânia"},
-    {"codigo_ibge": "5300108", "nome": "Brasília"},
-    {"codigo_ibge": "9999999", "nome": "UTFPRCity"},
-]
+CAPITAIS_BRASILEIRAS = build_municipality_options(
+    [
+        "Porto Velho",
+        "Rio Branco",
+        "Manaus",
+        "Boa Vista",
+        "Belém",
+        "Macapá",
+        "Palmas",
+        "São Luís",
+        "Teresina",
+        "Fortaleza",
+        "Natal",
+        "João Pessoa",
+        "Recife",
+        "Maceió",
+        "Aracaju",
+        "Salvador",
+        "Belo Horizonte",
+        "Vitória",
+        "Rio de Janeiro",
+        "São Paulo",
+        "Curitiba",
+        "Florianópolis",
+        "Porto Alegre",
+        "Campo Grande",
+        "Cuiabá",
+        "Goiânia",
+        "Brasília",
+    ]
+)
+
+CAPITAIS_BRASILEIRAS.append({"codigo_ibge": "9999999", "nome": "UTFPRCity - PR"})
 
 
 def _unique_cities(cities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -500,7 +504,7 @@ def inject_api_data_into_flat_list(
     logger.info(f"   📊 SICONFI: receita={receita_propria_valor}, despesas={despesas_capital_valor}, receita_total={receita_total_valor}, dívida={divida_consolidada_valor}")
     logger.info(f"   📊 IBGE: população={populacao}")
     logger.info(f"   📊 DataSUS: hospitais={num_hospitais}")
-    logger.info(f"   📊 DataSUS Expandido (Phase 2): hospitais_100k={hospitais_por_100k}, leitos_uti={leitos_uti_pct}%, vacina={cobertura_vacina_covid_pct}%, atencao_basica={cobertura_atencao_basica_pct}%, agentes={agentes_comunitarios_saude}")
+    logger.info(f"   📊 DataSUS Expandido (Phase 2): hospitais_100k={hospitais_por_100k}, leitos_uti={leitos_uti_pct}%, imunizacao={cobertura_vacina_covid_pct}%, atencao_basica={cobertura_atencao_basica_pct}%, agentes={agentes_comunitarios_saude}")
     logger.info(f"   📊 Portal Expandido (Phase 2): prog_sociais={beneficiarios_programas_sociais_pct}%, alimentacao={cobertura_alimentacao_escolar_pct}%, agua={acesso_agua_potavel_pct}%")
     logger.info(f"   📊 TSE: participacao={participacao_eleitoral_pct}%, mulheres={mulheres_eleitas_pct}%")
     logger.info(f"   📊 Portal: beneficiados_bolsa_familia={beneficiados_bolsa_familia}")
@@ -684,13 +688,6 @@ def inject_api_data_into_flat_list(
     elif indicadores_flat[29] == 0.0:
         logger.info(f"   ⚪ [Índice 29] Leitos UTI: 0.0 (SEM DADOS)")
     
-    # [30] Cobertura Vacinação COVID (%) (DataSUS Expandido)
-    if indicadores_flat[30] == 0.0 and cobertura_vacina_covid_pct > 0:
-        indicadores_flat[30] = cobertura_vacina_covid_pct
-        logger.info(f"   ✅ [Índice 30] Cobertura Vacina COVID: {cobertura_vacina_covid_pct:.1f}% (DataSUS Expandido)")
-    elif indicadores_flat[30] == 0.0:
-        logger.info(f"   ⚪ [Índice 30] Cobertura Vacina COVID: 0.0 (SEM DADOS)")
-    
     # [31] Cobertura Atenção Básica (%) (DataSUS Expandido)
     if indicadores_flat[31] == 0.0 and cobertura_atencao_basica_pct > 0:
         indicadores_flat[31] = cobertura_atencao_basica_pct
@@ -741,6 +738,13 @@ def inject_api_data_into_flat_list(
         logger.info(f"   ✅ [Índice 36] Seguro Saúde: {indicadores_flat[36]:.2f}% (DataSUS proxy)")
     elif indicadores_flat[36] == 0.0:
         logger.info(f"   ⚪ [Índice 36] Seguro Saúde: 0.0 (SEM DADOS)")
+
+    # [40] Taxa de Imunização (%) (DataSUS Expandido)
+    if indicadores_flat[40] == 0.0 and cobertura_vacina_covid_pct > 0:
+        indicadores_flat[40] = cobertura_vacina_covid_pct
+        logger.info(f"   💉 ✅ [Índice 40] Taxa de Imunização: {cobertura_vacina_covid_pct:.1f}% (DataSUS Expandido)")
+    elif indicadores_flat[40] == 0.0:
+        logger.info(f"   💉 ⚪ [Índice 40] Taxa de Imunização: 0.0 (SEM DADOS)")
     
     # [38] Abrigos de Emergência (proxy: população vulnerável)
     if indicadores_flat[38] == 0.0 and abrigos_emergencia_calc > 0:
@@ -789,9 +793,30 @@ def inject_api_data_into_flat_list(
     # [46] Mortalidade por Desastres/100k (Defesa Civil)
     if indicadores_flat[46] == 0.0 and mortalidade_desastres_100k > 0:
         indicadores_flat[46] = mortalidade_desastres_100k
-        logger.info(f"   ✅ [Índice 46] Mortalidade Desastres: {mortalidade_desastres_100k:.2f}/100k (Defesa Civil)")
+        logger.info(f"   🚒 ✅ [Índice 46] Mortalidade Desastres: {mortalidade_desastres_100k:.2f}/100k (Defesa Civil)")
     elif indicadores_flat[46] == 0.0:
-        logger.info(f"   ⚪ [Índice 46] Mortalidade Desastres: 0.0 (SEM DADOS)")
+        logger.info(f"   🚒 ⚪ [Índice 46] Mortalidade Desastres: 0.0 (SEM DADOS)")
+
+    # [47] Pessoas Afetadas por Desastres (100k hab) (Defesa Civil)
+    if indicadores_flat[47] == 0.0 and defesa_civil_data.get("pessoas_afetadas_desastres_100k", 0) > 0:
+        indicadores_flat[47] = defesa_civil_data["pessoas_afetadas_desastres_100k"]
+        logger.info(f"   🚒 ✅ [Índice 47] Pessoas Afetadas por Desastres: {indicadores_flat[47]:.2f}/100k (Defesa Civil)")
+    elif indicadores_flat[47] == 0.0:
+        logger.info(f"   🚒 ⚪ [Índice 47] Pessoas Afetadas por Desastres: 0.0 (SEM DADOS)")
+
+    # [48] Perdas por Desastres (% PIB) (Defesa Civil)
+    if indicadores_flat[48] == 0.0 and defesa_civil_data.get("perdas_desastres_pct_pib", 0) > 0:
+        indicadores_flat[48] = defesa_civil_data["perdas_desastres_pct_pib"]
+        logger.info(f"   🚒 ✅ [Índice 48] Perdas por Desastres: {indicadores_flat[48]:.2f}% PIB (Defesa Civil)")
+    elif indicadores_flat[48] == 0.0:
+        logger.info(f"   🚒 ⚪ [Índice 48] Perdas por Desastres: 0.0 (SEM DADOS)")
+
+    # [49] Danos à Infraestrutura Básica (%) (Defesa Civil)
+    if indicadores_flat[49] == 0.0 and defesa_civil_data.get("danos_infraestrutura_basica_pct", 0) > 0:
+        indicadores_flat[49] = defesa_civil_data["danos_infraestrutura_basica_pct"]
+        logger.info(f"   🚒 ✅ [Índice 49] Danos à Infraestrutura: {indicadores_flat[49]:.2f}% (Defesa Civil)")
+    elif indicadores_flat[49] == 0.0:
+        logger.info(f"   🚒 ⚪ [Índice 49] Danos à Infraestrutura: 0.0 (SEM DADOS)")
     
     return indicadores_flat
 
@@ -808,10 +833,10 @@ async def processar_cidade_real(
     db: Session = None
 ) -> dict:
     """
-    ✨ PROCESSAMENTO REFATORADO: Agregação Dinâmica de 47 Indicadores ISO com Cache Inteligente
+    ✨ PROCESSAMENTO REFATORADO: Agregação Dinâmica de 50 Indicadores (47 ISO + 3 INEP) com Cache Inteligente
     
     Implementa as 3 estratégias solicitadas em sequência:
-    1. Flattening: Extrai 47 indicadores em lista plana respeitando ordem Pydantic
+    1. Flattening: Extrai 50 indicadores em lista plana respeitando ordem Pydantic
     2. Injeção de APIs: Sobrescreve campos específicos com dados de SICONFI, IBGE, DataSUS
     3. Cache Inteligente: Salva dados frescos das APIs no banco de dados (se db passado)
     
@@ -822,7 +847,7 @@ async def processar_cidade_real(
         db: Sessão SQLAlchemy opcional para salvar dados no banco (cache inteligente)
     
     Returns:
-        Dict com nome_cidade e indicadores_flatalizados (50 valores), ou None em erro
+    Dict com nome_cidade e indicadores_flatalizados (50 valores), ou None em erro
     """
     try:
         logger.info(f"\n{'='*80}")
@@ -1278,7 +1303,7 @@ async def get_hybrid_ranking(payload: List[CityHybridInput], db: Session = Depen
     """
     ✨ ENDPOINT PRINCIPAL: Ranking Smart Cities com 50 Indicadores ISO + INEP Completos
 
-    ESTRUTURA: 50 indicadores totais (47 ISO: 16 ISO37120 + 15 ISO37122 + 16 ISO37123 + Sendai + 3 INEP educação)
+    ESTRUTURA: 50 indicadores totais (47 ISO + 3 INEP educação)
 
     PESOS: Equitativos (1/50 = 0.02 cada)
     IMPACTOS: Definidos matematicamente conforme ISO e Marco de Sendai
@@ -1310,7 +1335,7 @@ async def get_hybrid_ranking(payload: List[CityHybridInput], db: Session = Depen
     try:
         logger.info("=" * 100)
         logger.info(f"🚀 INICIANDO CÁLCULO TOPSIS HÍBRIDO REFATORADO")
-        logger.info(f"📊 Cidades: {len(payload)} | Indicadores: 50 (47 ISO: 16 ISO37120 + 15 ISO37122 + 16 ISO37123 + 3 INEP educação)")
+        logger.info(f"📊 Cidades: {len(payload)} | Indicadores: 50 (47 ISO + 3 INEP educação)")
         logger.info(f"🔄 Método: Flattening → API Injection → Mock Survival")
         logger.info("=" * 100)
         
@@ -1418,7 +1443,7 @@ async def get_hybrid_ranking(payload: List[CityHybridInput], db: Session = Depen
         try:
             periodo_referencia = datetime.utcnow().strftime("%Y-%m")
             
-            # Salvar snapshot do ranking (47 indicadores ISO completos)
+            # Salvar snapshot do ranking (50 indicadores totais)
             ranking_data = [
                 {
                     "nome_cidade": city.nome_cidade,
@@ -1742,8 +1767,8 @@ async def get_city_snapshots(codigo_ibge: str, db: Session = Depends(get_db)):
     """
     try:
         # Validar formato do código IBGE
-        if not codigo_ibge.isdigit() or len(codigo_ibge) != 8:
-            raise HTTPException(status_code=400, detail="Código IBGE deve ter 8 dígitos")
+        if not codigo_ibge.isdigit() or len(codigo_ibge) not in (7, 8):
+            raise HTTPException(status_code=400, detail="Código IBGE deve ter 7 ou 8 dígitos")
         
         # Buscar snapshots no banco (ordenado por data descendente)
         snapshots = db.query(IndicatorSnapshot).filter(

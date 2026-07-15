@@ -5,6 +5,8 @@ import HomePage from './pages/HomePage';
 import RankingPage from './pages/RankingPage';
 import AboutPage from './pages/AboutPage';
 import AdminCidadesPage from './pages/AdminCidadesPage';
+import CityIndicatorsHistoryPage from './pages/CityIndicatorsHistoryPage';
+import HistoricalSeriesPage from './pages/HistoricalSeriesPage';
 
 function App() {
   return (
@@ -15,21 +17,22 @@ function App() {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/ranking" element={<RankingPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              
-              {/* Admin pages */}
-              <Route path="/nova-avaliacao" element={<NovaAvaliacaoPage />} />
-              <Route path="/historico" element={<HistoricoPage />} />
-              <Route path="/admin/cidades" element={<AdminCidadesPage />} />
-              <Route path="/admin/indicadores" element={<AdminIndicadoresPage />} />
-              <Route path="/admin/metodologia" element={<AdminMetodologiaPage />} />
-              <Route path="/admin/auditorias" element={<AdminAuditoriaPage />} />
-            </Routes>
-          </div>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/ranking" element={<RankingPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            
+            {/* Admin pages */}
+            <Route path="/nova-avaliacao" element={<NovaAvaliacaoPage />} />
+            <Route path="/historico" element={<CityIndicatorsHistoryPage />} />
+            <Route path="/historico-indicadores" element={<CityIndicatorsHistoryPage />} />
+            <Route path="/historical-series" element={<HistoricalSeriesPage />} />
+            <Route path="/historico-topsis" element={<HistoricalSeriesPage />} />
+            <Route path="/admin/cidades" element={<AdminCidadesPage />} />
+            <Route path="/admin/indicadores" element={<AdminIndicadoresPage />} />
+            <Route path="/admin/metodologia" element={<AdminMetodologiaPage />} />
+            <Route path="/admin/auditorias" element={<AdminAuditoriaPage />} />
+          </Routes>
         </main>
       </div>
     </Router>
@@ -44,17 +47,10 @@ const NovaAvaliacaoPage = () => (
   </div>
 );
 
-const HistoricoPage = () => (
-  <div>
-    <h1 className="text-3xl font-bold text-gray-900">Histórico de Rankings</h1>
-    <p className="text-gray-600 mt-2">Visualize todos os rankings gerados</p>
-  </div>
-);
-
 const AdminIndicadoresPage = () => (
   <div>
     <h1 className="text-3xl font-bold text-gray-900">Base de Indicadores</h1>
-    <p className="text-gray-600 mt-2">Visualize e gerencie os 47 indicadores ISO</p>
+    <p className="text-gray-600 mt-2">Visualize e gerencie os 50 indicadores TOPSIS</p>
   </div>
 );
 

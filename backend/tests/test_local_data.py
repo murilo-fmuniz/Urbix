@@ -250,7 +250,7 @@ class TestCaching:
         cache_info = LocalDataService.get_cache_info()
         
         assert cache_info['total_municipios'] > 0, "Cache deve ter pelo menos 1 município"
-        assert cache_info['total_municipios'] == 23, "Cache deve ter 23 municípios (conforme ETL)"
+        assert cache_info['total_municipios'] >= 5000, "Cache deve refletir o catálogo IBGE completo"
 
 
 # ============================================================================
@@ -274,7 +274,7 @@ class TestMetadata:
         
         assert 'metadata' in all_data
         assert 'municipios' in all_data
-        assert len(all_data['municipios']) == 23
+        assert len(all_data['municipios']) >= 5000
 
 
 # ============================================================================
@@ -329,9 +329,9 @@ class TestIntegration:
         
         # 4. Metadados
         metadata = LocalDataService.get_metadata()
-        assert metadata['total_municipios'] == 23
+        assert metadata['total_municipios'] >= 5000
         
         # 5. Cache ainda está carregado (3 chamadas compartilham mesmo cache)
         cache_info = LocalDataService.get_cache_info()
         assert cache_info['is_loaded']
-        assert cache_info['total_municipios'] == 23
+        assert cache_info['total_municipios'] >= 5000

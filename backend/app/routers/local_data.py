@@ -214,7 +214,7 @@ def list_municipios() -> Dict[str, Any]:
         {
             "metadata": {
                 "data_processamento": "2026-04-27T19:09:00",
-                "total_municipios": 23,
+                "total_municipios": 5599,
                 ...
             },
             "municipios": {
@@ -252,7 +252,7 @@ def get_cache_info() -> Dict[str, Any]:
         {
             "is_loaded": true,
             "cache_loaded_at": "2026-04-29T10:30:00.123456",
-            "total_municipios": 23,
+            "total_municipios": 5599,
             "json_file_path": "/app/data/indicators_master.json",
             "json_file_exists": true
         }

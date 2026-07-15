@@ -13,6 +13,7 @@ import {
 import IndicatorsComparisonChart from './IndicatorsComparisonChart';
 import { getHybridRanking } from '../services/api';
 import { INDICADORES_CONFIG, INDICADORES_INICIAL } from './ManualDataForm';
+import { getMunicipalitiesByNames } from '../data/ibgeCatalog';
 
 // ✅ GERAR TABS DINAMICAMENTE A PARTIR DE INDICADORES_CONFIG
 const TABS = Object.entries(INDICADORES_CONFIG).map(([isoKey, config]) => ({
@@ -29,26 +30,12 @@ const TABS = Object.entries(INDICADORES_CONFIG).map(([isoKey, config]) => ({
 }));
 
 // ✅ DADOS INICIAIS: 3 cidades com TODOS os 47 indicadores (via INDICADORES_INICIAL)
-const INITIAL_CITIES = [
-  {
-    codigo_ibge: '4101408',
-    nome: 'Apucarana',
-    estado: 'PR',
-    ...INDICADORES_INICIAL,
-  },
-  {
-    codigo_ibge: '4113700',
-    nome: 'Londrina',
-    estado: 'PR',
-    ...INDICADORES_INICIAL,
-  },
-  {
-    codigo_ibge: '4115200',
-    nome: 'Maringá',
-    estado: 'PR',
-    ...INDICADORES_INICIAL,
-  },
-];
+const INITIAL_CITIES = getMunicipalitiesByNames(['Apucarana', 'Londrina', 'Maringá']).map((city) => ({
+  codigo_ibge: city.codigo,
+  nome: city.nome.split(' - ')[0],
+  estado: city.uf_abbr,
+  ...INDICADORES_INICIAL,
+}));
 
 export default function SmartCityDashboard() {
   // ESTADO PRINCIPAL

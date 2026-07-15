@@ -50,7 +50,7 @@ function Navbar() {
 
             {/* Nova Avaliação */}
             <Link
-              to="/nova-avaliacao"
+              to="/ranking"
               className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 transition-colors"
             >
               ➕ Nova Avaliação

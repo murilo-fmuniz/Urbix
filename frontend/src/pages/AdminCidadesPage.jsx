@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import ManualDataForm from '../components/ManualDataForm';
+import { getMunicipalitiesByNames } from '../data/ibgeCatalog';
 import './AdminCidadesPage.css';
 
 const CITY_PRESETS = [
   { codigo_ibge: '9999999', nome_cidade: 'UTFPRCity - PR' },
-  { codigo_ibge: '4101408', nome_cidade: 'Apucarana - PR' },
-  { codigo_ibge: '4113700', nome_cidade: 'Londrina - PR' },
-  { codigo_ibge: '3304557', nome_cidade: 'Rio de Janeiro - RJ' },
-  { codigo_ibge: '3550308', nome_cidade: 'São Paulo - SP' },
+  ...getMunicipalitiesByNames(['Apucarana', 'Londrina', 'Rio de Janeiro', 'São Paulo']).map((city) => ({
+    codigo_ibge: city.codigo,
+    nome_cidade: city.nome,
+  })),
 ];
 
 const MANUAL_ONLY_FIELDS = [
