@@ -1,0 +1,65 @@
+# 🗺️ Estrutura de Arquivos do Frontend
+
+```text
+📂 frontend/
+    📄 .env.local
+    📄 .env.production
+    📄 index.html
+    📄 package-lock.json
+    📄 package.json
+    📄 postcss.config.js
+    📄 tailwind.config.js
+    📂 src/
+        📄 App.jsx
+        📄 main.jsx
+        📂 components/
+            📄 CityInputForm.css
+            📄 CityInputForm.jsx
+            📄 Header.css
+            📄 Header.jsx
+            📄 HistoricoIndicadores.css
+            📄 HistoricoIndicadores.jsx
+            📄 HistoricoRankings.css
+            📄 HistoricoRankings.jsx
+            📄 IndicatorCard.css
+            📄 IndicatorCard.jsx
+            📄 IndicatorsChart.css
+            📄 IndicatorsChart.jsx
+            📄 IndicatorsComparisonChart.css
+            📄 IndicatorsComparisonChart.jsx
+            📄 ManualDataForm.css
+            📄 ManualDataForm.jsx
+            📄 ManualDataForm.test.js
+            📄 Navbar.jsx
+            📄 RankingTable.css
+            📄 RankingTable.jsx
+            📄 Sidebar.examples.jsx
+            📄 Sidebar.jsx
+            📄 SmartCityDashboard.css
+            📄 SmartCityDashboard.examples.jsx
+            📄 SmartCityDashboard.jsx
+            📄 SmartCityDashboard_BACKUP.jsx
+        📂 constants/
+            📄 indicadores.js
+        📂 data/
+            📄 ibgeCatalog.js
+            📄 ibge_catalog.json
+        📂 pages/
+            📄 AboutPage.css
+            📄 AboutPage.jsx
+            📄 AdminCidadesPage.css
+            📄 AdminCidadesPage.jsx
+            📄 CityIndicatorsHistoryPage.jsx
+            📄 HistoricalSeriesPage.jsx
+            📄 HomePage.css
+            📄 HomePage.jsx
+            📄 RankingPage.css
+            📄 RankingPage.jsx
+        📂 services/
+            📄 api-manual-data-examples.js
+            📄 api.js
+        📂 styles/
+            📄 global.css
+        📂 utils/
+            📄 validation.js
+```

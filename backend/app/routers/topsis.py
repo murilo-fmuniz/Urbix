@@ -25,7 +25,7 @@ from app.schemas import (
     ManualCityIndicators,
 )
 from app.services.indicators import calculate_all_indicators
-from app.services.topsis import calculate_topsis
+from app.services.topsis_core import calculate_topsis
 from app.services.external_apis import (
     get_ibge_population,
     get_siconfi_finances,
@@ -237,21 +237,9 @@ logger.info(f"✅ TOPSIS Configurado: {_NUM_INDICADORES} indicadores, peso equit
 
 def load_etl_data_for_city(codigo_ibge: str) -> Dict[str, Any]:
     """
-    🔄 Carrega dados de CAGED e DATASUS SIM do arquivo indicators_master.json
-    
-    Arquivo gerado por: scripts/process_local_data.py
-    Localização: backend/app/data/indicators_master.json
-    
-    Args:
-        codigo_ibge: Código IBGE da cidade
-    
-    Returns:
-        Dict com chaves:
-        - saldo_empregos_caged: Saldo de empregos (Portal da Transparência)
-        - homicidios_100k: Taxa de homicídios por 100k habitantes (DATASUS SIM)
+    🔄 Carrega os dados ETL do arquivo indicators_master.json.
     """
     etl_file = Path(__file__).parent.parent / "data" / "indicators_master.json"
-    
     etl_data = {}
     
     if not etl_file.exists():
@@ -262,26 +250,38 @@ def load_etl_data_for_city(codigo_ibge: str) -> Dict[str, Any]:
         with open(etl_file, 'r', encoding='utf-8') as f:
             master_data = json.load(f)
         
-        # Extrair dados para esta cidade
         if "municipios" in master_data and codigo_ibge in master_data["municipios"]:
             cidade_data = master_data["municipios"][codigo_ibge]
-            
-            # Extrair CAGED (Saldo de Empregos)
-            if "saldo_empregos_caged" in cidade_data:
-                etl_data["saldo_empregos_caged"] = cidade_data["saldo_empregos_caged"]
-                logger.debug(f"   ✅ ETL CAGED: {etl_data['saldo_empregos_caged']}")
-            
-            # Extrair DATASUS SIM (Homicídios)
-            if "homicidios_100k" in cidade_data:
-                etl_data["homicidios_100k"] = cidade_data["homicidios_100k"]
-                logger.debug(f"   ✅ ETL DATASUS SIM: {etl_data['homicidios_100k']}")
-        
+            indicadores = cidade_data.get("indicadores", {}) if isinstance(cidade_data, dict) else {}
+
+            for key in [
+                "saldo_empregos_caged",
+                "homicidios_100k",
+                "moradias_inadequadas_pct",
+                "sem_teto_100k",
+                "hospitais_por_100k",
+                "seguro_saude_basico_pct",
+                "abrigos_emergencia_100k",
+                "mapas_ameacas_publicos_pct",
+                "populacao_estimada_2025",
+                "num_hospitais",
+                "energia_de_residuos",          # Novo!
+                "lixeiras_com_sensores",        # Novo!
+                "prontuario_eletronico_pct",    # Novo!
+                "consultas_remotas_100k",       # Novo!
+                "pib_per_capita"                # Novo!
+            ]:
+                if key in cidade_data:
+                    etl_data[key] = cidade_data[key]
+                elif key in indicadores:
+                    etl_data[key] = indicadores[key]
+
         return etl_data
     
     except Exception as e:
         logger.warning(f"⚠️  Erro ao ler dados ETL: {str(e)}")
         return etl_data
-
+    
 # ==========================================
 # FUNÇÕES AUXILIARES: INTERPOLAÇÃO INTELIGENTE
 # ==========================================
@@ -380,74 +380,26 @@ def inject_api_data_into_flat_list(
     inep_data: Dict[str, Any],
     transparencia_data: Dict[str, Any],
     datasus_expanded_data: Dict[str, Any],
-    portal_social_data: Dict[str, Any],  # NEW: Social programs data
-    etl_data: Dict[str, Any],  # NEW: ETL data (CAGED, DATASUS SIM)
-    # 🎯 5 NOVAS APIs (PARTE 3)
-    aneel_data: Dict[str, Any],  # API 5: ANEEL
-    ministerio_trabalho_data: Dict[str, Any],  # API 6: Min. Trabalho
-    antp_data: Dict[str, Any],  # API 7: ANTP
-    defesa_civil_data: Dict[str, Any],  # API 8: Defesa Civil
-    cnj_data: Dict[str, Any],  # API 9: CNJ
+    portal_social_data: Dict[str, Any],  
+    etl_data: Dict[str, Any],  
+    aneel_data: Dict[str, Any], 
+    ministerio_trabalho_data: Dict[str, Any], 
+    antp_data: Dict[str, Any], 
+    defesa_civil_data: Dict[str, Any], 
+    cnj_data: Dict[str, Any], 
     nome_cidade: str
 ) -> List[float]:
-    """
-    ⭐ PASSO 2: INJEÇÃO DOS DADOS AUTOMÁTICOS (OTIMIZADA - 15+ INDICADORES REAIS)
+    """⭐ PASSO 2: INJEÇÃO DOS DADOS AUTOMÁTICOS"""
     
-    Sobrescreve valores específicos na lista plana com dados das APIs:
-    - SICONFI: receita_propria_pct, despesas_capital_pct, orcamento_per_capita, divida (endividamento)
-    - IBGE: população (para cálculos per capita)
-    - DataSUS: hospitais_por_100k, proxy de serviços de saúde
-    - DataSUS Expandido: 5 indicadores de saúde [28-32]
-    - INEP: relacao_estudante_professor, ideb_anos_iniciais, escolas_conectadas_pct
-    - Portal da Transparência: taxa_populacao_assistida (Bolsa Família como proxy de vulnerabilidade social)
-    - 🎯 ETL (NOVO): CAGED (empregos), DATASUS SIM (homicídios)
-    - 🎯 5 NOVAS APIs (PARTE 3): ANEEL, Min. Trabalho, ANTP, Defesa Civil, CNJ
+    indicadores_flat = list(indicadores_flat) 
     
-    Estratégia de Preenchimento:
-    1. Se manual == 0.0 E API tem dados > 0 → Sobrescreve com API (dado real)
-    2. Se manual > 0 → Mantém manual (usuário tem prioridade)
-    3. Se manual == 0.0 E API == 0 → Deixa em branco para normalização (não distorce dados)
-    
-    Args:
-        indicadores_flat: Lista plana com 50 valores (após flattening)
-        siconfi_data: Dict com receita_propria, despesas_capital, receita_total, divida_consolidada
-        ibge_data: Dict com populacao
-        datasus_data: Dict com num_hospitais
-        inep_data: Dict com relacao_estudante_professor, ideb_anos_iniciais, escolas_conectadas_pct
-        transparencia_data: Dict com beneficiados_bolsa_familia
-        datasus_expanded_data: Dict com 5 indicadores de saúde (novo em Phase 2)
-        portal_social_data: Dict com dados de programas sociais
-        etl_data: 🎯 Dict com saldo_empregos_caged, homicidios_100k (do indicators_master.json)
-        aneel_data: 🎯 Dict com medidores_inteligentes_pct (API ANEEL)
-        ministerio_trabalho_data: 🎯 Dict com acidentes_industriais_100k (API Min. Trabalho)
-        antp_data: 🎯 Dict com frota_onibus_zero_emissao_pct (API ANTP)
-        defesa_civil_data: 🎯 Dict com mortalidade_desastres_100k, perdas_desastres_pct_pib (API Defesa Civil)
-        cnj_data: 🎯 Dict com condenacoes_corrupcao_100k (API CNJ)
-        nome_cidade: Para logging
-    
-    Returns:
-        Lista atualizada com dados das APIs injetados em ~30 indicadores
-    """
-    
-    # DEBUG: Log dos dados que chegaram
-    logger.info(f"\n🔍 DEBUG: Dados recebidos para injeção ({nome_cidade}):")
-    logger.info(f"   INEP keys: {list(inep_data.keys()) if isinstance(inep_data, dict) else 'não é dict'}")
-    logger.info(f"   INEP relacao: {inep_data.get('relacao_estudante_professor') if isinstance(inep_data, dict) else 'N/A'}")
-    logger.info(f"   INEP ideb: {inep_data.get('ideb_anos_iniciais') if isinstance(inep_data, dict) else 'N/A'}")
-    logger.info(f"   INEP escolas: {inep_data.get('escolas_conectadas_pct') if isinstance(inep_data, dict) else 'N/A'}")
-    indicadores_flat = list(indicadores_flat)  # Copiar para não modificar original
-    
-    # ==========================================================
-    # 🛡️ BLINDAGEM CONTRA TIPOS ERRADOS DA API/FALLBACK (ERRO 503)
-    # ==========================================================
     siconfi_data = siconfi_data if isinstance(siconfi_data, dict) else {}
     datasus_data = datasus_data if isinstance(datasus_data, dict) else {}
     inep_data = inep_data if isinstance(inep_data, dict) else {}
     transparencia_data = transparencia_data if isinstance(transparencia_data, dict) else {}
     datasus_expanded_data = datasus_expanded_data if isinstance(datasus_expanded_data, dict) else {}
-    portal_social_data = portal_social_data if isinstance(portal_social_data, dict) else {}  # NEW: Social programs
-    etl_data = etl_data if isinstance(etl_data, dict) else {}  # 🎯 NEW: ETL data
-    # 🎯 5 NOVAS APIs (PARTE 3) - Blindagem
+    portal_social_data = portal_social_data if isinstance(portal_social_data, dict) else {}  
+    etl_data = etl_data if isinstance(etl_data, dict) else {} 
     aneel_data = aneel_data if isinstance(aneel_data, dict) else {}
     ministerio_trabalho_data = ministerio_trabalho_data if isinstance(ministerio_trabalho_data, dict) else {}
     antp_data = antp_data if isinstance(antp_data, dict) else {}
@@ -458,41 +410,35 @@ def inject_api_data_into_flat_list(
         ibge_data = {"populacao": float(ibge_data)}
     elif not isinstance(ibge_data, dict):
         ibge_data = {}
-    # ===========================================================
     
-    # Extrair dados das APIs com validação segura
-    populacao = ibge_data.get("populacao", 0) or 1  # Evitar divisão por zero
-    
+    populacao = ibge_data.get("populacao", 0) or 1 
     receita_propria_valor = siconfi_data.get("receita_propria", 0) or 0
     despesas_capital_valor = siconfi_data.get("despesas_capital", 0) or 0
-    receita_total_valor = siconfi_data.get("receita_total", 0) or 1  # Evitar divisão por zero
+    receita_total_valor = siconfi_data.get("receita_total", 0) or 1 
     divida_consolidada_valor = siconfi_data.get("divida_consolidada", 0) or 0
     arrecadacao_valor = siconfi_data.get("arrecadacao", 0) or 0
-    
     num_hospitais = datasus_data.get("num_hospitais", 0) or 0
-    
-    # Extrair dados DataSUS Expandido (5 novos indicadores Phase 2 Task 4)
     hospitais_por_100k = datasus_expanded_data.get("hospitais_por_100k", 0) or 0
     leitos_uti_pct = datasus_expanded_data.get("leitos_uti_pct", 0) or 0
     cobertura_vacina_covid_pct = datasus_expanded_data.get("cobertura_vacina_covid_pct", 0) or 0
     cobertura_atencao_basica_pct = datasus_expanded_data.get("cobertura_atencao_basica_pct", 0) or 0
     agentes_comunitarios_saude = datasus_expanded_data.get("agentes_comunitarios_saude", 0) or 0
-    
-    # Extrair dados Portal Transparência Expandido (3 novos indicadores Phase 2 Task 2)
     beneficiarios_programas_sociais_pct = portal_social_data.get("beneficiarios_programas_sociais_pct", 0) or 0
     cobertura_alimentacao_escolar_pct = portal_social_data.get("cobertura_alimentacao_escolar_pct", 0) or 0
     acesso_agua_potavel_pct = portal_social_data.get("acesso_agua_potavel_pct", 0) or 0
-    
-    # Extrair dados do Portal da Transparência + TSE
     beneficiados_bolsa_familia = transparencia_data.get("beneficiados_bolsa_familia", 0) or 0
     participacao_eleitoral_pct = transparencia_data.get("participacao_eleitoral_pct", 0) or 0
     mulheres_eleitas_pct = transparencia_data.get("mulheres_eleitas_pct", 0) or 0
     
-    # 🎯 Extrair dados do ETL (indicators_master.json gerado por process_local_data.py)
+    # 🎯 Extrair dados do ETL
     saldo_empregos_caged = etl_data.get("saldo_empregos_caged", 0) or 0
     homicidios_100k_etl = etl_data.get("homicidios_100k", 0) or 0
+    energia_residuos_etl = etl_data.get("energia_de_residuos", 0) or 0
+    lixeiras_sensores_etl = etl_data.get("lixeiras_com_sensores", 0) or 0
+    prontuario_eletronico_etl = etl_data.get("prontuario_eletronico_pct", 0) or 0
+    consultas_remotas_etl = etl_data.get("consultas_remotas_100k", 0) or 0
     
-    # 🎯 Extrair dados das 5 NOVAS APIs (PARTE 3)
+    # 🎯 Extrair dados das NOVAS APIs
     medidores_inteligentes_pct = aneel_data.get("medidores_inteligentes_pct", 0) or 0
     acidentes_industriais_100k = ministerio_trabalho_data.get("acidentes_industriais_100k", 0) or 0
     frota_onibus_zero_emissao_pct = antp_data.get("frota_onibus_zero_emissao_pct", 0) or 0
@@ -500,323 +446,159 @@ def inject_api_data_into_flat_list(
     perdas_desastres_pct_pib = defesa_civil_data.get("perdas_desastres_pct_pib", 0) or 0
     condenacoes_corrupcao_100k = cnj_data.get("condenacoes_corrupcao_100k", 0) or 0
     
-    logger.info(f"\n💾 INJEÇÃO DE DADOS DAS APIS ({nome_cidade}) - 25+ INDICADORES REAIS:")
-    logger.info(f"   📊 SICONFI: receita={receita_propria_valor}, despesas={despesas_capital_valor}, receita_total={receita_total_valor}, dívida={divida_consolidada_valor}")
-    logger.info(f"   📊 IBGE: população={populacao}")
-    logger.info(f"   📊 DataSUS: hospitais={num_hospitais}")
-    logger.info(f"   📊 DataSUS Expandido (Phase 2): hospitais_100k={hospitais_por_100k}, leitos_uti={leitos_uti_pct}%, imunizacao={cobertura_vacina_covid_pct}%, atencao_basica={cobertura_atencao_basica_pct}%, agentes={agentes_comunitarios_saude}")
-    logger.info(f"   📊 Portal Expandido (Phase 2): prog_sociais={beneficiarios_programas_sociais_pct}%, alimentacao={cobertura_alimentacao_escolar_pct}%, agua={acesso_agua_potavel_pct}%")
-    logger.info(f"   📊 TSE: participacao={participacao_eleitoral_pct}%, mulheres={mulheres_eleitas_pct}%")
-    logger.info(f"   📊 Portal: beneficiados_bolsa_familia={beneficiados_bolsa_familia}")
-    logger.info(f"   🎯 ETL: saldo_empregos={saldo_empregos_caged}, homicidios_100k={homicidios_100k_etl} (CAGED + DATASUS SIM)")
-    # 🎯 Logs das 5 NOVAS APIs (PARTE 3)
-    logger.info(f"   🎯 ANEEL: medidores_inteligentes={medidores_inteligentes_pct}%")
-    logger.info(f"   🎯 Min. Trabalho: acidentes_industriais={acidentes_industriais_100k}/100k")
-    logger.info(f"   🎯 ANTP: frota_zero_emissao={frota_onibus_zero_emissao_pct}%")
-    logger.info(f"   🎯 Defesa Civil: mortalidade_desastres={mortalidade_desastres_100k}/100k, perdas_desastres={perdas_desastres_pct_pib}% PIB")
-    logger.info(f"   🎯 CNJ: condenacoes_corrupcao={condenacoes_corrupcao_100k}/100k")
-    
-    # ===== CÁLCULOS DOS INDICADORES REAIS =====
-    
-    # Índice [1] = Taxa de Endividamento (%)
+    # Cálculos dinâmicos
     taxa_endividamento_calc = (divida_consolidada_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
-    
-    # Índice [2] = Despesas de Capital (% orçamento)
     despesas_capital_pct_calc = (despesas_capital_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
-    
-    # Índice [3] = Receita Própria (% receita total)
     receita_propria_pct_calc = (receita_propria_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
-    
-    # Índice [4] = Orçamento per capita (R$)
     orcamento_per_capita_calc = (receita_total_valor / populacao) if populacao > 0 else 0.0
-    
-    # Índice [8] = Moradias Inadequadas (usando como proxy Taxa de População Assistida pelo Bolsa Família)
-    # Taxa = (beneficiados / população) * 100
+    moradias_inadequadas_etl = etl_data.get("moradias_inadequadas_pct", 0) or 0
     taxa_populacao_assistida_calc = (beneficiados_bolsa_familia / populacao * 100) if populacao > 0 else 0.0
-    
-    # Índice [9] = Sem-teto (como proxy de vulnerabilidade - usar mesma taxa de Bolsa Família)
+    sem_teto_etl = etl_data.get("sem_teto_100k", 0) or 0
     sem_teto_100k_calc = (beneficiados_bolsa_familia / populacao * 100000) if populacao > 0 else 0.0
-    
-    # Índice [35] = Hospitais com Gerador Backup (usando como proxy hospitais_por_100k)
+    hospitais_100k_etl = etl_data.get("hospitais_por_100k", 0) or 0
     hospitais_100k_calc = (num_hospitais / populacao * 100000) if populacao > 0 else 0.0
-    
-    # Índice [24] = Monitoramento Ar em Tempo Real (proxy: usar taxa de arrecadação como proxy de infraestrutura)
     monitoramento_ar_calc = (arrecadacao_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
-    
-    # Índice [36] = Seguro Saúde Básico (proxy: usar taxa de população com acesso a hospitais)
+    seguro_saude_etl = etl_data.get("seguro_saude_basico_pct", 0) or 0
     seguro_saude_calc = (num_hospitais / populacao * 100) if populacao > 0 else 0.0
-    
-    # Índice [38] = Abrigos de Emergência (proxy: usar população vulnerável via Bolsa Família)
+    abrigos_emergencia_etl = etl_data.get("abrigos_emergencia_100k", 0) or 0
     abrigos_emergencia_calc = (beneficiados_bolsa_familia / populacao * 100000) if populacao > 0 else 0.0
-    
-    # Índice [42] = Mapas de Ameaças Públicos (proxy: usar taxa de arrecadação para infraestrutura de mapeamento)
+    mapas_ameacas_etl = etl_data.get("mapas_ameacas_publicos_pct", 0) or 0
     mapas_ameacas_calc = (arrecadacao_valor / receita_total_valor * 100) if receita_total_valor > 0 else 0.0
     
     # ===== INJEÇÕES NA MATRIZ =====
     
-    # 🎯 [0] Taxa de Desemprego (%) - Usando CAGED: Saldo de Empregos
-    # Interpretação: Saldo positivo → mais empregos → desemprego baixo
     if indicadores_flat[0] == 0.0 and saldo_empregos_caged != 0:
-        # Normalizar: maior saldo → menor desemprego
         taxa_desemprego_proxy = max(0, 10 - (saldo_empregos_caged / max(populacao, 1) * 1000))
-        indicadores_flat[0] = min(taxa_desemprego_proxy, 25.0)  # Cap em 25%
-        logger.info(f"   ✅ [Índice 0] Taxa Desemprego: {indicadores_flat[0]:.2f}% (CAGED - Saldo Empregos)")
-    elif indicadores_flat[0] > 0:
-        logger.info(f"   ⚪ [Índice 0] Taxa Desemprego: {indicadores_flat[0]:.2f}% (MANUAL)")
-    elif indicadores_flat[0] == 0.0:
-        logger.info(f"   ⚪ [Índice 0] Taxa Desemprego: 0.0 (SEM DADOS)")
+        indicadores_flat[0] = min(taxa_desemprego_proxy, 25.0) 
     
-    # 🎯 [13] Homicídios (100k hab) - Usando DATASUS SIM
     if indicadores_flat[13] == 0.0 and homicidios_100k_etl > 0:
         indicadores_flat[13] = homicidios_100k_etl
-        logger.info(f"   ✅ [Índice 13] Homicídios/100k: {homicidios_100k_etl:.2f} (DATASUS SIM - ETL)")
-    elif indicadores_flat[13] > 0:
-        logger.info(f"   ⚪ [Índice 13] Homicídios/100k: {indicadores_flat[13]:.2f} (MANUAL)")
-    elif indicadores_flat[13] == 0.0:
-        logger.info(f"   ⚪ [Índice 13] Homicídios/100k: 0.0 (SEM DADOS)")
-    
-    # [1] Taxa de Endividamento
+        
     if indicadores_flat[1] == 0.0 and taxa_endividamento_calc > 0:
         indicadores_flat[1] = taxa_endividamento_calc
-        logger.info(f"   ✅ [Índice 1] Taxa Endividamento: {taxa_endividamento_calc:.2f}% (SICONFI - RGF)")
-    elif indicadores_flat[1] == 0.0:
-        logger.info(f"   ⚪ [Índice 1] Taxa Endividamento: 0.0 (SEM DADOS)")
-    else:
-        logger.info(f"   ⚪ [Índice 1] Taxa Endividamento: {indicadores_flat[1]:.2f}% (MANUAL)")
-    
-    # [2] Despesas de Capital
+        
     if indicadores_flat[2] == 0.0 and despesas_capital_pct_calc > 0:
         indicadores_flat[2] = despesas_capital_pct_calc
-        logger.info(f"   ✅ [Índice 2] Despesas Capital: {despesas_capital_pct_calc:.2f}% (SICONFI - RREO)")
-    elif indicadores_flat[2] == 0.0:
-        logger.info(f"   ⚪ [Índice 2] Despesas Capital: 0.0 (SEM DADOS)")
-    else:
-        logger.info(f"   ⚪ [Índice 2] Despesas Capital: {indicadores_flat[2]:.2f}% (MANUAL)")
-    
-    # [3] Receita Própria
+        
     if indicadores_flat[3] == 0.0 and receita_propria_pct_calc > 0:
         indicadores_flat[3] = receita_propria_pct_calc
-        logger.info(f"   ✅ [Índice 3] Receita Própria: {receita_propria_pct_calc:.2f}% (SICONFI - RREO)")
-    elif indicadores_flat[3] == 0.0:
-        logger.info(f"   ⚪ [Índice 3] Receita Própria: 0.0 (SEM DADOS)")
-    else:
-        logger.info(f"   ⚪ [Índice 3] Receita Própria: {indicadores_flat[3]:.2f}% (MANUAL)")
-    
-    # [4] Orçamento per capita
+        
     if indicadores_flat[4] == 0.0 and orcamento_per_capita_calc > 0:
         indicadores_flat[4] = orcamento_per_capita_calc
-        logger.info(f"   ✅ [Índice 4] Orçamento/per capita: R$ {orcamento_per_capita_calc:.2f} (SICONFI - RREO)")
-    elif indicadores_flat[4] == 0.0:
-        logger.info(f"   ⚪ [Índice 4] Orçamento/per capita: 0.0 (SEM DADOS)")
-    else:
-        logger.info(f"   ⚪ [Índice 4] Orçamento/per capita: R$ {indicadores_flat[4]:.2f} (MANUAL)")
-    
-    # [8] Moradias Inadequadas/Taxa de População Assistida (Portal da Transparência)
-    if indicadores_flat[8] == 0.0 and taxa_populacao_assistida_calc > 0:
+        
+    if indicadores_flat[8] == 0.0 and moradias_inadequadas_etl > 0:
+        indicadores_flat[8] = moradias_inadequadas_etl
+    elif indicadores_flat[8] == 0.0 and taxa_populacao_assistida_calc > 0:
         indicadores_flat[8] = taxa_populacao_assistida_calc
-        logger.info(f"   ✅ [Índice 8] Pop. Assistida (Bolsa Família): {taxa_populacao_assistida_calc:.2f}% (PORTAL)")
-    elif indicadores_flat[8] == 0.0:
-        logger.info(f"   ⚪ [Índice 8] Pop. Assistida: 0.0 (SEM DADOS)")
-    else:
-        logger.info(f"   ⚪ [Índice 8] Pop. Assistida: {indicadores_flat[8]:.2f}% (MANUAL)")
-    
-    # [9] Sem-teto (proxy de vulnerabilidade social)
-    if indicadores_flat[9] == 0.0 and sem_teto_100k_calc > 0:
+        
+    if indicadores_flat[9] == 0.0 and sem_teto_etl > 0:
+        indicadores_flat[9] = sem_teto_etl
+    elif indicadores_flat[9] == 0.0 and sem_teto_100k_calc > 0:
         indicadores_flat[9] = sem_teto_100k_calc
-        logger.info(f"   ✅ [Índice 9] Sem-teto/100k (Bolsa Família): {sem_teto_100k_calc:.2f} (PORTAL)")
-    elif indicadores_flat[9] == 0.0:
-        logger.info(f"   ⚪ [Índice 9] Sem-teto/100k: 0.0 (SEM DADOS)")
-    
-    # [15] Relação Estudante/Professor (ISO37120)
+        
     relacao_estudante_professor = inep_data.get("relacao_estudante_professor", 0) or 0
     if indicadores_flat[15] == 0.0 and relacao_estudante_professor > 0:
         indicadores_flat[15] = relacao_estudante_professor
-        logger.info(f"   ✅ [Índice 15] Relação Est./Prof: {relacao_estudante_professor:.2f} alunos/prof (INEP)")
-    elif indicadores_flat[15] == 0.0:
-        logger.info(f"   ⚪ [Índice 15] Relação Est./Prof: 0.0 (SEM DADOS)")
-    
-    # [16] IDEB Anos Iniciais (ISO37120)
+        
     ideb_anos_iniciais = inep_data.get("ideb_anos_iniciais", 0) or 0
     if indicadores_flat[16] == 0.0 and ideb_anos_iniciais > 0:
         indicadores_flat[16] = ideb_anos_iniciais
-        logger.info(f"   ✅ [Índice 16] IDEB Anos Iniciais: {ideb_anos_iniciais:.1f}/10 (INEP)")
-    elif indicadores_flat[16] == 0.0:
-        logger.info(f"   ⚪ [Índice 16] IDEB Anos Iniciais: 0.0 (SEM DADOS)")
-    
-    # [5] Mulheres Eleitas em Cargos (% - TSE)
+        
     if indicadores_flat[5] == 0.0 and mulheres_eleitas_pct > 0:
         indicadores_flat[5] = mulheres_eleitas_pct
-        logger.info(f"   ✅ [Índice 5] Mulheres Eleitas: {mulheres_eleitas_pct:.1f}% (TSE)")
-    elif indicadores_flat[5] == 0.0:
-        logger.info(f"   ⚪ [Índice 5] Mulheres Eleitas: 0.0 (SEM DADOS)")
-    
-    # [7] Participação Eleitoral (% - TSE)
+        
     if indicadores_flat[7] == 0.0 and participacao_eleitoral_pct > 0:
         indicadores_flat[7] = participacao_eleitoral_pct
-        logger.info(f"   ✅ [Índice 7] Participação Eleitoral: {participacao_eleitoral_pct:.1f}% (TSE)")
-    elif indicadores_flat[7] == 0.0:
-        logger.info(f"   ⚪ [Índice 7] Participação Eleitoral: 0.0 (SEM DADOS)")
-    
-    # [24] Monitoramento Ar em Tempo Real (proxy de infraestrutura)
+        
     if indicadores_flat[24] == 0.0 and monitoramento_ar_calc > 0:
         indicadores_flat[24] = monitoramento_ar_calc
-        logger.info(f"   ✅ [Índice 24] Monitoramento Ar: {monitoramento_ar_calc:.2f}% (SICONFI proxy)")
-    elif indicadores_flat[24] == 0.0:
-        logger.info(f"   ⚪ [Índice 24] Monitoramento Ar: 0.0 (SEM DADOS)")
-    
-    # [33] Escolas Conectadas com TeleGestão (ISO37122)
+        
     escolas_conectadas_pct = inep_data.get("escolas_conectadas_pct", 0) or 0
     if indicadores_flat[33] == 0.0 and escolas_conectadas_pct > 0:
         indicadores_flat[33] = escolas_conectadas_pct
-        logger.info(f"   ✅ [Índice 33] Escolas Conectadas: {escolas_conectadas_pct:.1f}% (INEP)")
-    elif indicadores_flat[33] == 0.0:
-        logger.info(f"   ⚪ [Índice 33] Escolas Conectadas: 0.0 (SEM DADOS)")
-    
-    # ✨ PHASE 2: DataSUS Expandido - 5 Novos Indicadores de Saúde [28-32]
-    
-    # [28] Hospitais por 100k habitantes (DataSUS Expandido)
-    if indicadores_flat[28] == 0.0 and hospitais_por_100k > 0:
+        
+    if indicadores_flat[28] == 0.0 and hospitais_100k_etl > 0:
+        indicadores_flat[28] = hospitais_100k_etl
+    elif indicadores_flat[28] == 0.0 and hospitais_por_100k > 0:
         indicadores_flat[28] = hospitais_por_100k
-        logger.info(f"   ✅ [Índice 28] Hospitais/100k hab: {hospitais_por_100k:.2f} (DataSUS Expandido)")
-    elif indicadores_flat[28] == 0.0:
-        logger.info(f"   ⚪ [Índice 28] Hospitais/100k hab: 0.0 (SEM DADOS)")
-    
-    # [29] Leitos UTI (%) (DataSUS Expandido)
+        
     if indicadores_flat[29] == 0.0 and leitos_uti_pct > 0:
         indicadores_flat[29] = leitos_uti_pct
-        logger.info(f"   ✅ [Índice 29] Leitos UTI: {leitos_uti_pct:.1f}% (DataSUS Expandido)")
-    elif indicadores_flat[29] == 0.0:
-        logger.info(f"   ⚪ [Índice 29] Leitos UTI: 0.0 (SEM DADOS)")
-    
-    # [31] Cobertura Atenção Básica (%) (DataSUS Expandido)
+        
     if indicadores_flat[31] == 0.0 and cobertura_atencao_basica_pct > 0:
         indicadores_flat[31] = cobertura_atencao_basica_pct
-        logger.info(f"   ✅ [Índice 31] Cobertura Atenção Básica: {cobertura_atencao_basica_pct:.1f}% (DataSUS Expandido)")
-    elif indicadores_flat[31] == 0.0:
-        logger.info(f"   ⚪ [Índice 31] Cobertura Atenção Básica: 0.0 (SEM DADOS)")
-    
-    # [32] Agentes Comunitários de Saúde (DataSUS Expandido)
+        
     if indicadores_flat[32] == 0.0 and agentes_comunitarios_saude > 0:
         indicadores_flat[32] = agentes_comunitarios_saude
-        logger.info(f"   ✅ [Índice 32] Agentes Comunitários: {agentes_comunitarios_saude:.0f} (DataSUS Expandido)")
-    elif indicadores_flat[32] == 0.0:
-        logger.info(f"   ⚪ [Índice 32] Agentes Comunitários: 0.0 (SEM DADOS)")
-    
-    # ✨ PHASE 2 TASK 2: Portal Transparência Expandido - 3 Novos Indicadores Sociais [37,39,44]
-    
-    # [37] Beneficiários de Programas Sociais (%) (Portal Expandido - Phase 2 Task 2)
+        
     if indicadores_flat[37] == 0.0 and beneficiarios_programas_sociais_pct > 0:
         indicadores_flat[37] = beneficiarios_programas_sociais_pct
-        logger.info(f"   ✅ [Índice 37] Beneficiários Programas Sociais: {beneficiarios_programas_sociais_pct:.1f}% (Portal Expandido)")
-    elif indicadores_flat[37] == 0.0:
-        logger.info(f"   ⚪ [Índice 37] Beneficiários Programas Sociais: 0.0 (SEM DADOS)")
-    
-    # [39] Cobertura Alimentação Escolar (%) (Portal Expandido - Phase 2 Task 2)
+        
     if indicadores_flat[39] == 0.0 and cobertura_alimentacao_escolar_pct > 0:
         indicadores_flat[39] = cobertura_alimentacao_escolar_pct
-        logger.info(f"   ✅ [Índice 39] Cobertura Alimentação Escolar: {cobertura_alimentacao_escolar_pct:.1f}% (Portal Expandido)")
-    elif indicadores_flat[39] == 0.0:
-        logger.info(f"   ⚪ [Índice 39] Cobertura Alimentação Escolar: 0.0 (SEM DADOS)")
-    
-    # [44] Acesso a Água Potável (%) (Portal Expandido - Phase 2 Task 2 - SNIS)
+        
     if indicadores_flat[44] == 0.0 and acesso_agua_potavel_pct > 0:
         indicadores_flat[44] = acesso_agua_potavel_pct
-        logger.info(f"   ✅ [Índice 44] Acesso Água Potável: {acesso_agua_potavel_pct:.1f}% (Portal Expandido)")
-    elif indicadores_flat[44] == 0.0:
-        logger.info(f"   ⚪ [Índice 44] Acesso Água Potável: 0.0 (SEM DADOS)")
-    
-    # [35] Hospitais por 100k habitantes (proxy para serviços de saúde)
-    if indicadores_flat[35] == 0.0 and hospitais_100k_calc > 0:
+        
+    if indicadores_flat[35] == 0.0 and hospitais_100k_etl > 0:
+        indicadores_flat[35] = hospitais_100k_etl
+    elif indicadores_flat[35] == 0.0 and hospitais_100k_calc > 0:
         indicadores_flat[35] = hospitais_100k_calc
-        logger.info(f"   ✅ [Índice 35] Hospitais/100k hab: {hospitais_100k_calc:.2f} (DATASUS + IBGE)")
-    elif indicadores_flat[35] == 0.0:
-        logger.info(f"   ⚪ [Índice 35] Hospitais/100k hab: 0.0 (SEM DADOS)")
-    
-    # [36] Seguro Saúde Básico (proxy: acesso a hospitais)
-    if indicadores_flat[36] == 0.0 and seguro_saude_calc > 0:
-        indicadores_flat[36] = min(seguro_saude_calc, 100.0)  # Cap em 100%
-        logger.info(f"   ✅ [Índice 36] Seguro Saúde: {indicadores_flat[36]:.2f}% (DataSUS proxy)")
-    elif indicadores_flat[36] == 0.0:
-        logger.info(f"   ⚪ [Índice 36] Seguro Saúde: 0.0 (SEM DADOS)")
+        
+    if indicadores_flat[36] == 0.0 and seguro_saude_etl > 0:
+        indicadores_flat[36] = min(seguro_saude_etl, 100.0)
+    elif indicadores_flat[36] == 0.0 and seguro_saude_calc > 0:
+        indicadores_flat[36] = min(seguro_saude_calc, 100.0) 
 
-    # [40] Taxa de Imunização (%) (DataSUS Expandido)
     if indicadores_flat[40] == 0.0 and cobertura_vacina_covid_pct > 0:
         indicadores_flat[40] = cobertura_vacina_covid_pct
-        logger.info(f"   💉 ✅ [Índice 40] Taxa de Imunização: {cobertura_vacina_covid_pct:.1f}% (DataSUS Expandido)")
-    elif indicadores_flat[40] == 0.0:
-        logger.info(f"   💉 ⚪ [Índice 40] Taxa de Imunização: 0.0 (SEM DADOS)")
-    
-    # [38] Abrigos de Emergência (proxy: população vulnerável)
-    if indicadores_flat[38] == 0.0 and abrigos_emergencia_calc > 0:
+        
+    if indicadores_flat[38] == 0.0 and abrigos_emergencia_etl > 0:
+        indicadores_flat[38] = abrigos_emergencia_etl
+    elif indicadores_flat[38] == 0.0 and abrigos_emergencia_calc > 0:
         indicadores_flat[38] = abrigos_emergencia_calc
-        logger.info(f"   ✅ [Índice 38] Abrigos Emergência: {abrigos_emergencia_calc:.2f}/100k (Portal proxy)")
-    elif indicadores_flat[38] == 0.0:
-        logger.info(f"   ⚪ [Índice 38] Abrigos Emergência: 0.0 (SEM DADOS)")
-    
-    # [42] Mapas de Ameaças Públicos (proxy: infraestrutura de dados)
-    if indicadores_flat[42] == 0.0 and mapas_ameacas_calc > 0:
+        
+    if indicadores_flat[42] == 0.0 and mapas_ameacas_etl > 0:
+        indicadores_flat[42] = mapas_ameacas_etl
+    elif indicadores_flat[42] == 0.0 and mapas_ameacas_calc > 0:
         indicadores_flat[42] = mapas_ameacas_calc
-        logger.info(f"   ✅ [Índice 42] Mapas Ameaças: {mapas_ameacas_calc:.2f}% (SICONFI proxy)")
-    elif indicadores_flat[42] == 0.0:
-        logger.info(f"   ⚪ [Índice 42] Mapas Ameaças: 0.0 (SEM DADOS)")
-    
-    # 🎯 5 NOVAS APIs (PARTE 3) - INJEÇÃO DAS 5 NOVAS APIS
-    
-    # [6] Condenações por Corrupção/100k (CNJ)
+        
     if indicadores_flat[6] == 0.0 and condenacoes_corrupcao_100k > 0:
         indicadores_flat[6] = condenacoes_corrupcao_100k
-        logger.info(f"   ✅ [Índice 6] Condenações Corrupção: {condenacoes_corrupcao_100k:.2f}/100k (CNJ)")
-    elif indicadores_flat[6] == 0.0:
-        logger.info(f"   ⚪ [Índice 6] Condenações Corrupção: 0.0 (SEM DADOS)")
-    
-    # [14] Acidentes Industriais/100k (Min. Trabalho)
+        
     if indicadores_flat[14] == 0.0 and acidentes_industriais_100k > 0:
         indicadores_flat[14] = acidentes_industriais_100k
-        logger.info(f"   ✅ [Índice 14] Acidentes Industriais: {acidentes_industriais_100k:.2f}/100k (Min. Trabalho)")
-    elif indicadores_flat[14] == 0.0:
-        logger.info(f"   ⚪ [Índice 14] Acidentes Industriais: 0.0 (SEM DADOS)")
-    
-    # [22] Medidores Inteligentes Energia (ANEEL)
+        
     if indicadores_flat[22] == 0.0 and medidores_inteligentes_pct > 0:
         indicadores_flat[22] = medidores_inteligentes_pct
-        logger.info(f"   ✅ [Índice 22] Medidores Inteligentes: {medidores_inteligentes_pct:.1f}% (ANEEL)")
-    elif indicadores_flat[22] == 0.0:
-        logger.info(f"   ⚪ [Índice 22] Medidores Inteligentes: 0.0 (SEM DADOS)")
-    
-    # [32] Frota Ônibus Zero Emissão (ANTP)
+        
     if indicadores_flat[32] == 0.0 and frota_onibus_zero_emissao_pct > 0:
         indicadores_flat[32] = frota_onibus_zero_emissao_pct
-        logger.info(f"   ✅ [Índice 32] Frota Ônibus Zero Emissão: {frota_onibus_zero_emissao_pct:.1f}% (ANTP)")
-    elif indicadores_flat[32] == 0.0:
-        logger.info(f"   ⚪ [Índice 32] Frota Ônibus Zero Emissão: 0.0 (SEM DADOS)")
-    
-    # [46] Mortalidade por Desastres/100k (Defesa Civil)
+        
     if indicadores_flat[46] == 0.0 and mortalidade_desastres_100k > 0:
         indicadores_flat[46] = mortalidade_desastres_100k
-        logger.info(f"   🚒 ✅ [Índice 46] Mortalidade Desastres: {mortalidade_desastres_100k:.2f}/100k (Defesa Civil)")
-    elif indicadores_flat[46] == 0.0:
-        logger.info(f"   🚒 ⚪ [Índice 46] Mortalidade Desastres: 0.0 (SEM DADOS)")
 
-    # [47] Pessoas Afetadas por Desastres (100k hab) (Defesa Civil)
     if indicadores_flat[47] == 0.0 and defesa_civil_data.get("pessoas_afetadas_desastres_100k", 0) > 0:
         indicadores_flat[47] = defesa_civil_data["pessoas_afetadas_desastres_100k"]
-        logger.info(f"   🚒 ✅ [Índice 47] Pessoas Afetadas por Desastres: {indicadores_flat[47]:.2f}/100k (Defesa Civil)")
-    elif indicadores_flat[47] == 0.0:
-        logger.info(f"   🚒 ⚪ [Índice 47] Pessoas Afetadas por Desastres: 0.0 (SEM DADOS)")
 
-    # [48] Perdas por Desastres (% PIB) (Defesa Civil)
-    if indicadores_flat[48] == 0.0 and defesa_civil_data.get("perdas_desastres_pct_pib", 0) > 0:
-        indicadores_flat[48] = defesa_civil_data["perdas_desastres_pct_pib"]
-        logger.info(f"   🚒 ✅ [Índice 48] Perdas por Desastres: {indicadores_flat[48]:.2f}% PIB (Defesa Civil)")
-    elif indicadores_flat[48] == 0.0:
-        logger.info(f"   🚒 ⚪ [Índice 48] Perdas por Desastres: 0.0 (SEM DADOS)")
+    if indicadores_flat[48] == 0.0 and perdas_desastres_pct_pib > 0:
+        indicadores_flat[48] = perdas_desastres_pct_pib
 
-    # [49] Danos à Infraestrutura Básica (%) (Defesa Civil)
     if indicadores_flat[49] == 0.0 and defesa_civil_data.get("danos_infraestrutura_basica_pct", 0) > 0:
         indicadores_flat[49] = defesa_civil_data["danos_infraestrutura_basica_pct"]
-        logger.info(f"   🚒 ✅ [Índice 49] Danos à Infraestrutura: {indicadores_flat[49]:.2f}% (Defesa Civil)")
-    elif indicadores_flat[49] == 0.0:
-        logger.info(f"   🚒 ⚪ [Índice 49] Danos à Infraestrutura: 0.0 (SEM DADOS)")
+
+    # ======= NOVAS INJEÇÕES =======
+    if indicadores_flat[20] == 0.0 and energia_residuos_etl > 0:
+        indicadores_flat[20] = energia_residuos_etl
+
+    if indicadores_flat[26] == 0.0 and prontuario_eletronico_etl > 0:
+        indicadores_flat[26] = prontuario_eletronico_etl
+        
+    if indicadores_flat[27] == 0.0 and consultas_remotas_etl > 0:
+        indicadores_flat[27] = consultas_remotas_etl
+
+    if indicadores_flat[30] == 0.0 and lixeiras_sensores_etl > 0:
+        indicadores_flat[30] = lixeiras_sensores_etl
     
     return indicadores_flat
 

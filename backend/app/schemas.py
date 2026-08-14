@@ -122,17 +122,12 @@ class ManualCityIndicators(BaseModel):
 class CityHybridInput(BaseModel):
     """Schema para entrada de dados de cidades no endpoint TOPSIS híbrido.
     
-    manual_indicators: Dict com 4 campos simples do frontend
-    - pontos_iluminacao_telegestao (%)
-    - medidores_inteligentes_energia (%)
-    - bombeiros_por_100k (unidade)
-    - area_verde_mapeada (%)
-    
-    Estes serão mapeados para a estrutura ISO 47-indicadores dentro do endpoint.
+    Aceita tanto o formato simples do frontend quanto a estrutura completa
+    de indicadores manuais usada pelo backend.
     """
-    codigo_ibge: str  # Obrigatório
-    nome_cidade: str  # Obrigatório
-    manual_indicators: Optional[Dict[str, Any]] = None  # Dict simples do frontend
+    codigo_ibge: str = ""
+    nome_cidade: Optional[str] = None
+    manual_indicators: Optional[Union[Dict[str, Any], ManualCityIndicators]] = None
 
 from datetime import date
 

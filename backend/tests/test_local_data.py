@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from app.services.local_data_service import LocalDataService
+from app.services.local_etl_service import run_local_etl
 
 
 # ============================================================================
@@ -256,6 +257,38 @@ class TestCaching:
 # ============================================================================
 # TESTES DE METADADOS
 # ============================================================================
+
+class TestETLGeneration:
+    """Testes de regressão para o gerador ETL local."""
+
+    def test_run_local_etl_writes_expected_output_file(self):
+        """✅ O ETL deve gerar o arquivo de indicadores na pasta correta do backend."""
+        output_file = Path(__file__).resolve().parent.parent / "app" / "data" / "indicators_master.json"
+        if output_file.exists():
+            output_file.unlink()
+
+        payload = run_local_etl()
+
+        assert output_file.exists(), f"Arquivo ETL não foi criado em {output_file}"
+        assert payload.get("municipios"), "Payload ETL deve conter municípios"
+        assert payload.get("metadata", {}).get("total_municipios", 0) > 0
+
+
+class TestETLGeneration:
+    """Testes de regressão para o gerador ETL local."""
+
+    def test_run_local_etl_writes_expected_output_file(self):
+        """✅ O ETL deve gerar o arquivo de indicadores na pasta correta do backend."""
+        output_file = Path(__file__).resolve().parent.parent / "app" / "data" / "indicators_master.json"
+        if output_file.exists():
+            output_file.unlink()
+
+        payload = run_local_etl()
+
+        assert output_file.exists(), f"Arquivo ETL não foi criado em {output_file}"
+        assert payload.get("municipios"), "Payload ETL deve conter municípios"
+        assert payload.get("metadata", {}).get("total_municipios", 0) > 0
+
 
 class TestMetadata:
     """Testes para acesso aos metadados."""
