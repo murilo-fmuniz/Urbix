@@ -4,22 +4,22 @@
 📂 backend/
     📄 .gitignore
     📄 alembic.ini
-    📄 api_inspector_simple.py
-    📄 inspect_bank.py
+    📄 check_domicilios.py
+    📄 inspect_domicilios.py
     📄 main.py
+    📄 relatório_cobertura_final.py
     📄 requirements.txt
     📄 run_server.bat
-    📄 sync_gov_apis.py
     📂 app/
         📄 __init__.py
         📄 database.py
+        📄 etl_config.py
         📄 main.py
         📄 models.py
         📄 schemas.py
         📄 utils.py
         📂 data/
             📄 ibge_catalog.json
-            📄 indicators_master.json
         📂 routers/
             📄 indicadores.py
             📄 local_data.py
@@ -27,23 +27,14 @@
             📄 topsis.py
         📂 services/
             📄 __init__.py
-            📄 datasus_api_expanded.py
             📄 demo_city_seed.py
-            📄 external_apis.py
             📄 ibge_catalog.py
             📄 indicators.py
-            📄 inep_api.py
             📄 local_data_service.py
-            📄 local_etl_service.py
-            📄 portal_transparencia_expanded.py
             📄 topsis_core.py
-            📄 tse_api.py
     📂 data/
         📄 seed_apucarana.json
         📄 seed_indicadores_iso37122.json
-        📂 cache_api/
-            📄 caged_cache.json
-            📄 datasus_cache.json
         📂 planilhas/
             📂 acessos_banda_larga_fixa/
                 📄 Acessos_Banda_Larga_Fixa_2007-2010.csv
@@ -254,71 +245,23 @@
                 📄 TDI_MUNICIPIOS_2025.ods
                 📄 TDI_MUNICIPIOS_2025.xlsx
     📂 tests/
-        📄 .gitkeep
         📄 __init__.py
-        📄 check_banco.py
-        📄 check_db.py
-        📄 check_index33.py
-        📄 clean_banco.py
-        📄 debug_apis.py
-        📄 debug_output.txt
-        📄 debug_siconfi_response.py
-        📄 diagnostic_output.txt
-        📄 diagnostico_siconfi.py
-        📄 find_londrina.py
-        📄 limpar_dados_fake.py
-        📄 quick_test_ssl.py
-        📄 test_5_indicadores_reais.py
-        📄 test_5_indicators_verify.py
-        📄 test_api_debug.py
-        📄 test_api_local.py
-        📄 test_backend_fixes_validation.py
-        📄 test_backend_ready.py
-        📄 test_complete.txt
-        📄 test_converter_indicadores.py
-        📄 test_datasus_expanded.py
-        📄 test_dc_fallback.py
-        📄 test_debug_apis.py
-        📄 test_endpoint_hibrido.py
-        📄 test_endpoint_real.py
-        📄 test_etl_injection.py
-        📄 test_external_apis.py
-        📄 test_fallback_universal.py
-        📄 test_final_phase2_task4.py
-        📄 test_final_simple.py
-        📄 test_frontend_backend_integration.py
-        📄 test_historical_series_integration.py
-        📄 test_index.py
-        📄 test_indicadores.py
-        📄 test_indicator_snapshots.py
-        📄 test_indices_28_32.py
-        📄 test_injecao_realinhamento.py
-        📄 test_integration_frontend.py
-        📄 test_integration_new_apis.py
-        📄 test_local_data.py
-        📄 test_local_data_endpoint.py
-        📄 test_local_topsis.py
-        📄 test_londrina.py
-        📄 test_manual_data_workflow.py
-        📄 test_normalizacao.py
-        📄 test_output.log
-        📄 test_output.txt
-        📄 test_parte3_orchestration.py
-        📄 test_persistence_cycle.py
-        📄 test_phase2_complete.py
-        📄 test_pipeline_hibrido.py
-        📄 test_portal_expanded.py
-        📄 test_production_validation.py
-        📄 test_ranking_hibrido.py
-        📄 test_raw_apis.py
-        📄 test_siconfi_analise.py
-        📄 test_siconfi_api.py
-        📄 test_siconfi_completo.py
-        📄 test_siconfi_debug.py
-        📄 test_snapshot_implementation_validation.py
-        📄 test_startup.py
-        📄 test_topsis_cities_list.py
-        📄 test_topsis_improved.py
-        📄 test_transparencia.py
-        📄 test_validation_final.py
+        📄 conftest.py
+        📄 test_engine.py
+    📂 tools/
+        📄 analyze_missing_deps.py
+        📄 backfill_base_indicators.py
+        📄 coverage_report_topsis_ids.py
+        📄 coverage_simple.py
+        📄 extract_denominators_explore.py
+        📄 extract_denominators_munic_cnes.py
+        📄 extract_load_denominators.py
+        📄 extract_load_denominators_fast.py
+        📄 fix_total_domicilios.py
+        📄 inventory_real_data.py
+        📄 inventory_real_data_fast.py
+        📄 local_etl_service.py
+        📄 optimize_runtime_db.py
+        📄 reload_domicilios_simple.py
+        📄 seed_metadata.py
 ```

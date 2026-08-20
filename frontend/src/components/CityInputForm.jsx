@@ -22,13 +22,21 @@ function CityInputForm({ onSubmit, loading }) {
 
   const updateCityCode = (index, value) => {
     const newCities = [...cities];
-    newCities[index].codigo_ibge = value;
-    // Extrair nome da cidade do dropdown (formato: 'Londrina - PR')
-    const selectedCity = getMunicipalityOption(value);
+    const cleanValue = value.replace(/\D/g, '').slice(0, 7); // Força apenas números
+    newCities[index].codigo_ibge = cleanValue;
+    
+    // Extrair nome da cidade do dropdown
+    const selectedCity = getMunicipalityOption(cleanValue);
     if (selectedCity) {
-      const cityName = selectedCity.nome.split(' - ')[0]; // Pega apenas 'Londrina'
+      const cityName = selectedCity.nome.split(' - ')[0];
       newCities[index].nome_cidade = cityName;
+    } else if (cleanValue.length === 7) {
+      // ✅ Fallback para a validação não bloquear IBGEs digitados manualmente
+      newCities[index].nome_cidade = `Cidade IBGE ${cleanValue}`;
+    } else {
+      newCities[index].nome_cidade = '';
     }
+    
     setCities(newCities);
   };
 

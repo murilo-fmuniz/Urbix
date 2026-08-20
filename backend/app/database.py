@@ -1,40 +1,76 @@
-"""
-Configuração de banco de dados com suporte a SQLite e PostgreSQL.
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-Variáveis de ambiente:
-- DATABASE_URL: URL completa do banco de dados
-  - SQLite (padrão): sqlite:///./urbix.db
-  - PostgreSQL: postgresql://user:password@localhost:5432/urbix
+# Cria um banco de dados local na raiz da pasta backend chamado "urbix.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./urbix.db"
 
-Exemplo:
-  export DATABASE_URL="postgresql://postgres:password@localhost:5432/urbix"
-"""
+# O connect_args={"check_same_thread": False} é necessário apenas para o SQLite no FastAPI
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
 
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-# Obtém URL do banco do .env ou usa SQLite por padrão
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./urbix.db")
-
-# Configurações específicas por tipo de banco
-engine_kwargs = {
-    "connect_args": {"check_same_thread": False}  # Necessário apenas para SQLite
-}
-
-# Se for PostgreSQL, remove connect_args pois não é necessário
-if DATABASE_URL.startswith("postgresql"):
-    engine_kwargs = {}
-
-engine = create_engine(DATABASE_URL, **engine_kwargs)
+# Cria a fábrica de sessões do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# A classe Base que o models.py estava sentindo falta!
+Base = declarative_base()
 
+
+def _is_sqlite() -> bool:
+    return SQLALCHEMY_DATABASE_URL.startswith("sqlite")
+
+
+def ensure_sqlite_optimizations(create_indexes: bool = False) -> None:
+    """Aplica PRAGMAs e, opcionalmente, índices de apoio para reduzir latência no SQLite."""
+    if not _is_sqlite():
+        return
+
+    try:
+        with engine.begin() as conn:
+            # Melhor concorrência/leitura para API (especialmente com ETL pesado).
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            conn.execute(text("PRAGMA synchronous=NORMAL"))
+            conn.execute(text("PRAGMA temp_store=MEMORY"))
+
+            if not create_indexes:
+                return
+
+            # Índice composto para seleção do registro mais recente por cidade+indicador.
+            conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_vi_cidade_indicador_ano_id
+                ON valores_indicadores (codigo_ibge, id_indicador, ano_referencia DESC, id DESC)
+                """
+            ))
+
+            # Índices auxiliares para busca de cidades e junções de ranking.
+            conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_vi_cidade_indicador
+                ON valores_indicadores (codigo_ibge, id_indicador)
+                """
+            ))
+            conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_municipios_nome
+                ON municipios (nome)
+                """
+            ))
+            conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_municipios_estado
+                ON municipios (estado)
+                """
+            ))
+    except OperationalError:
+        # Em contexto sem tabelas (ex.: bootstrap inicial), segue normalmente.
+        return
+
+# Dependência para injetar o banco de dados nas rotas do FastAPI
 def get_db():
-    """Dependency injection para obter sessão do banco de dados"""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
