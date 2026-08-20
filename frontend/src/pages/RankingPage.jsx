@@ -25,27 +25,61 @@ function RankingPage() {
         throw new Error(`${incompleteCities.length} cidade(s) sem Código IBGE ou Nome preenchidos`);
       }
 
-      // Formatar payload conforme esperado pelo backend (CityHybridInput)
-      const payload = cities.map(city => ({
-        codigo_ibge: city.codigo_ibge,
-        nome_cidade: city.nome_cidade,  // ✅ Campo obrigatório
-        manual_indicators: city.manual_indicators || null,
-      }));
-
       // ✅ Validar mínimo 2 cidades
-      if (payload.length < 2) {
-        throw new Error(`Mínimo 2 cidades requeridas para TOPSIS. Recebido: ${payload.length}`);
+      if (cities.length < 2) {
+        throw new Error(`Mínimo 2 cidades requeridas para TOPSIS. Recebido: ${cities.length}`);
       }
 
-      console.log('📤 Enviando payload:', payload);
-      const rankingResult = await getHybridRanking(payload);
-      console.log('📥 Resultado recebido:', rankingResult);
+      // 1. Extrair a lista de IBGEs para o schema do backend
+      const cidades_ibge = cities.map(city => city.codigo_ibge.trim());
+
+      // 2. Montar as simulações no formato flat (valores_brutos)
+      const simulacoes = cities.map(city => {
+        const raw = city.manual_indicators || {};
+        const valores_brutos = {};
+        
+        // Garante que só mandamos números válidos para o Pydantic
+        Object.entries(raw).forEach(([k, v]) => {
+          if (v !== '' && v !== null && !isNaN(v)) {
+            valores_brutos[k] = Number(v);
+          }
+        });
+
+        return {
+          codigo_ibge: city.codigo_ibge.trim(),
+          valores_brutos: valores_brutos
+        };
+      });
+
+      // 3. Montar o payload no padrão exato do TopsisSimulationRequest
+      const payload = {
+        cidades_ibge: cidades_ibge,
+        simulacoes: simulacoes
+      };
+
+      console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
+      const data = await getHybridRanking(payload);
+      console.log('📥 Resultado recebido (bruto):', data);
+
+      // 4. Traduzir a resposta (Array) para o formato que a UI da RankingPage espera (Objeto)
+      const rankingResult = {
+        ranking: data.map(item => ({
+          ...item,
+          indice_smart: item.pontuacao_topsis // Ajuste do nome da variável
+        })),
+        detalhes_calculo: {
+          matriz_normalizada: data.map(item => ({
+            cidade: item.nome_cidade,
+            ...item.valores_calculados
+          })),
+          indicadores_nomes: Object.keys(data[0]?.valores_calculados || {})
+        }
+      };
 
       setResult(rankingResult);
       setActiveTab('ranking');
     } catch (err) {
       console.error('❌ Erro ao gerar ranking:', err);
-      // Tratar diferentes tipos de erros
       let errorMessage = 'Erro desconhecido ao gerar ranking';
       if (err instanceof Error) {
         errorMessage = err.message;

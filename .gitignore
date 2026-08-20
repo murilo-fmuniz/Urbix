@@ -1,14 +1,42 @@
-etc/
+# =========================
+# Dependências
+# =========================
 node_modules/
+venv/
+.venv/
+env/
+
+# =========================
+# Python
+# =========================
 __pycache__/
 *.pyc
-.env
-.DS_Store
+*.pyo
+*.pyd
+.pytest_cache/
+
+# =========================
+# Builds e Compilados
+# =========================
 dist/
 build/
+
+# =========================
+# Configurações e Segurança
+# =========================
+.env
+.env.production
+# O .env.local do frontend está sendo rastreado pelo Git. 
+# Como só tem a URL da API, não tem problema, mas nunca coloque senhas nele.
+
+# =========================
+# IDEs e Sistema Operacional
+# =========================
 .vscode/
-.idea/    
-tests/
-scripts/
-docs/
+.idea/
+.DS_Store
+
+# =========================
+# Logs
+# =========================
 *.log

@@ -1,246 +1,197 @@
-import React, { useState, useMemo } from 'react';
-import { Bar } from 'react-chartjs-2';
+import React, { useMemo } from 'react';
+import { Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
   Tooltip,
   Legend,
 } from 'chart.js';
 import './IndicatorsComparisonChart.css';
 
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
   Tooltip,
   Legend
 );
 
-// ✅ Função para determinar categoria ISO baseado no índice do indicador
-const getIndicatorCategory = (index) => {
-  if (index < 18) return 'iso_37120'; // 0-17: ISO 37120 (18 indicadores)
-  if (index < 34) return 'iso_37122'; // 18-33: ISO 37122 (16 indicadores)
-  return 'iso_37123'; // 34-49: ISO 37123 + Sendai (16 indicadores)
+const AXES_MAPPING = {
+  "Economia & Governança": ["taxa_desemprego", "taxa_endividamento", "despesas_capital", "receita_propria", "orcamento_per_capita", "mulheres_eleitas", "condenacoes_corrupcao", "participacao_eleitoral"],
+  "Urbanismo & Segurança": ["moradias_inadequadas", "sem_teto", "bombeiros", "mortes_incendio", "agentes_policia", "homicidios", "acidentes_industriais"],
+  "Educação & Inovação": ["relacao_estudante_professor", "ideb_iniciais", "sobrevivencia_negocios", "empregos_tic", "graduados_stem"],
+  "Sustentabilidade": ["energia_residuos", "iluminacao_telegestao", "medidores_inteligentes_energia", "edificios_verdes", "monitoramento_ar", "servicos_urbanos_online", "prontuario_eletronico", "consultas_remotas", "medidores_inteligentes_agua", "areas_cobertas_cameras", "lixeiras_sensores", "semaforos_inteligentes", "frota_onibus_zero_emissao", "escolas_conectadas_telegestao", "seguros_ameacas", "empregos_informais"],
+  "Resiliência": ["escolas_plano_emergencia", "populacao_treinada_emergencia", "hospitais_gerador_backup", "seguro_saude_basico", "taxa_imunizacao", "abrigos_emergencia", "edificios_vulneraveis", "rotas_evacuacao", "reservas_alimentos_72h", "mapas_ameacas_publicos", "mortalidade_desastres", "pessoas_afetadas_desastres", "perdas_desastres_pib", "danos_infraestrutura"],
+  "Conectividade": ["densidade_banda_larga"]
 };
 
-// ✅ Mapa de categorias para exibição
-const CATEGORY_INFO = {
-  iso_37120: { label: 'ISO 37120 (Finanças, Governança)', color: '#ff9800', bgColor: '#fff3e0' },
-  iso_37122: { label: 'ISO 37122 (Tecnologia, Energia)', color: '#9c27b0', bgColor: '#f3e5f5' },
-  iso_37123: { label: 'ISO 37123 + Sendai (Resiliência, Saúde)', color: '#2196f3', bgColor: '#e3f2fd' },
-};
-
-const formatNormalizedAsPercent = (value) => {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '—';
-  }
-
-  return `${(value * 100).toFixed(2)}%`;
-};
+// Termos que indicam custo (quanto maior, pior)
+const TERMOS_NEGATIVOS = ["desemprego", "endividamento", "homicidios", "mortes", "inadequadas", "sem_teto", "acidentes", "corrupcao", "mortalidade", "afetadas", "perdas", "danos"];
 
 function IndicatorsComparisonChart({ cidades, matrizDecisao, indicadores }) {
-  // ✅ Estado para filtro de categorias ISO
-  const [selectedCategories, setSelectedCategories] = useState(new Set(['iso_37120', 'iso_37122', 'iso_37123']));
+  
+  const chartDataPerCity = useMemo(() => {
+    if (!cidades || !matrizDecisao || !indicadores) return null;
 
-  // ✅ Função para toggle de categoria
-  const toggleCategory = (category) => {
-    const newCategories = new Set(selectedCategories);
-    if (newCategories.has(category)) {
-      newCategories.delete(category);
-    } else {
-      newCategories.add(category);
-    }
-    setSelectedCategories(newCategories);
-  };
+    // 1. Filtra Eixos que possuem dados
+    const activeAxes = Object.entries(AXES_MAPPING).filter(([_, axisIndicators]) => {
+      return axisIndicators.some(ind => indicadores.includes(ind));
+    });
 
-  // ✅ Selecionar/deselecionar todas
-  const selectAllCategories = () => {
-    setSelectedCategories(new Set(['iso_37120', 'iso_37122', 'iso_37123']));
-  };
+    if (activeAxes.length === 0) return null;
 
-  const deselectAllCategories = () => {
-    setSelectedCategories(new Set());
-  };
+    // 2. Acha Máximo e Mínimo Global para cada indicador (para a escala de 0 a 100)
+    const statsPerIndicator = {};
+    indicadores.forEach(ind => {
+      const vals = cidades.map((_, i) => Number(matrizDecisao[i]?.[ind]) || 0);
+      statsPerIndicator[ind] = {
+        min: Math.min(...vals),
+        max: Math.max(...vals)
+      };
+    });
 
-  // ✅ Filtra indicadores e dados baseado em categorias selecionadas
-  const filteredData = useMemo(() => {
-    if (!cidades || !matrizDecisao || !indicadores || selectedCategories.size === 0) {
-      return null;
-    }
+    const axisScoresPerCity = cidades.map(() => ({}));
 
-    // Encontrar índices dos indicadores que devem ser exibidos
-    const indicesToShow = indicadores
-      .map((ind, idx) => ({ ind, idx }))
-      .filter(({ idx }) => selectedCategories.has(getIndicatorCategory(idx)));
+    // 3. Normalização (0 a 100%)
+    cidades.forEach((_, cityIdx) => {
+      activeAxes.forEach(([axisName, axisIndicators]) => {
+        let totalScore = 0;
+        let count = 0;
 
-    if (indicesToShow.length === 0) {
-      return null;
-    }
+        axisIndicators.forEach(ind => {
+          if (indicadores.includes(ind)) {
+            const rawVal = Number(matrizDecisao[cityIdx]?.[ind]) || 0;
+            const { min, max } = statsPerIndicator[ind];
 
+            let normalized = 0;
+            if (max === min) {
+              normalized = 1; // Empate
+            } else {
+              normalized = (rawVal - min) / (max - min);
+            }
+
+            // Inverte nota se for custo (ex: desemprego alto = nota baixa)
+            if (TERMOS_NEGATIVOS.some(termo => ind.includes(termo))) {
+              normalized = 1 - normalized; 
+            }
+
+            // Para gráficos separados, o valor real de 0 a 100 fica ótimo
+            totalScore += (normalized * 100);
+            count++;
+          }
+        });
+
+        axisScoresPerCity[cityIdx][axisName] = count > 0 ? (totalScore / count) : 0;
+      });
+    });
+
+    const axesNames = activeAxes.map(([name]) => name);
+    
+    // Paleta de Cores (Uma cor para cada cidade)
     const colors = [
-      '#1a73e8', '#4285f4', '#ea4335', '#fbbc04', '#34a853',
-      '#8b4bff', '#46bdc6', '#ff6d00',
+      { border: "rgba(59, 130, 246, 1)", bg: "rgba(59, 130, 246, 0.3)" }, // Azul (Cidade 1)
+      { border: "rgba(239, 68, 68, 1)", bg: "rgba(239, 68, 68, 0.3)" },   // Vermelho (Cidade 2)
+      { border: "rgba(34, 197, 94, 1)", bg: "rgba(34, 197, 94, 0.3)" },   // Verde (Cidade 3)
+      { border: "rgba(245, 158, 11, 1)", bg: "rgba(245, 158, 11, 0.3)" }  // Laranja (Cidade 4)
     ];
 
-    // Dados para gráfico de barras (por indicador)
-    const datasets = cidades.map((cidade, cidadeIdx) => ({
-      label: cidade,
-      data: indicesToShow.map(({ idx }) => matrizDecisao[cidadeIdx]?.[idx] || 0),
-      backgroundColor: colors[cidadeIdx % colors.length],
-      borderColor: colors[cidadeIdx % colors.length],
-      opacity: 0.7,
-    }));
+    // 4. Monta um dataset isolado para cada cidade
+    return cidades.map((cidade, idx) => {
+      return {
+        cidadeName: cidade,
+        chartData: {
+          labels: axesNames,
+          datasets: [{
+            label: cidade,
+            data: axesNames.map(axis => axisScoresPerCity[idx][axis]),
+            borderColor: colors[idx % colors.length].border,
+            backgroundColor: colors[idx % colors.length].bg,
+            pointBackgroundColor: colors[idx % colors.length].border,
+            pointBorderColor: '#fff',
+            pointHoverRadius: 6,
+            borderWidth: 2,
+            fill: true,
+          }]
+        }
+      };
+    });
+  }, [cidades, matrizDecisao, indicadores]);
 
-    return {
-      labels: indicesToShow.map(({ ind }) => ind),
-      datasets,
-      indicesToShow, // Guardar para uso na tabela
-    };
-  }, [cidades, matrizDecisao, indicadores, selectedCategories]);
+  if (!chartDataPerCity) return <div className="no-data">📊 Dados insuficientes para montar o Radar.</div>;
 
-  const chartData = useMemo(() => {
-    if (!filteredData) {
-      return null;
-    }
-
-    return {
-      labels: filteredData.labels,
-      datasets: filteredData.datasets,
-    };
-  }, [filteredData]);
-
-  if (!chartData) {
-    return (
-      <div className="no-data">
-        {selectedCategories.size === 0
-          ? '⚠️ Selecione pelo menos uma categoria ISO'
-          : '📊 Dados de indicadores não disponíveis'}
-      </div>
-    );
-  }
-
-  const options = {
+  const baseOptions = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top',
-        labels: {
-          font: {
-            size: 12,
-          },
-        },
-      },
-      title: {
-        display: true,
-        text: `Comparação de Indicadores por Cidade (${filteredData.indicesToShow.length} indicadores, escala 0-100%)`,
-        font: {
-          size: 16,
-          weight: 'bold',
-        },
-      },
+      legend: { display: false }, // Esconde a legenda pois o título já diz a cidade
       tooltip: {
         callbacks: {
-          label: (context) => `${context.dataset.label}: ${formatNormalizedAsPercent(context.parsed.y)}`,
-        },
-      },
+          label: (context) => `Score: ${(context.raw).toFixed(1)} / 100`
+        }
+      }
     },
     scales: {
-      y: {
+      r: {
+        min: 0,
+        max: 100, // Trava o gráfico rigorosamente de 0 a 100
         beginAtZero: true,
-        title: {
-          display: true,
-          text: 'Valor Normalizado (%)',
-        },
-        ticks: {
-          callback: (value) => `${Number(value) * 100}%`,
-        },
-      },
-    },
+        ticks: { stepSize: 25, display: false },
+        pointLabels: { font: { size: 12, weight: "600" }, color: '#475569' }
+      }
+    }
   };
 
   return (
     <div className="indicators-comparison-chart">
-      {/* ✅ FILTRO ISO CATEGORIES */}
-      <div className="iso-filter-section">
-        <div className="filter-header">
-          <h4>🏷️ Filtrar por Categoria ISO</h4>
-          <div className="filter-buttons">
-            <button
-              className="filter-btn-small"
-              onClick={selectAllCategories}
-              title="Selecionar todas as categorias"
-            >
-              ✓ Todas
-            </button>
-            <button
-              className="filter-btn-small"
-              onClick={deselectAllCategories}
-              title="Desselecionar todas as categorias"
-            >
-              ✗ Nenhuma
-            </button>
+      <div className="bg-slate-50 border-l-4 border-slate-500 p-4 mb-6 rounded-r shadow-sm">
+        <h4 className="font-bold text-slate-800 mb-1">ℹ️ Desempenho Relativo por Eixo (0 a 100)</h4>
+        <p className="text-sm text-slate-600">
+          Cada cidade possui seu próprio gráfico de atributos. A escala de 0 a 100 representa o desempenho relativo entre as cidades comparadas. Indicadores de impacto negativo (como desemprego ou sem-teto) foram invertidos.
+        </p>
+      </div>
+
+      {/* GRID RESPONSIVO PARA OS GRÁFICOS SEPARADOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        {chartDataPerCity.map((data, index) => (
+          <div key={index} className="bg-white p-6 border rounded-xl shadow-sm flex flex-col items-center">
+            <h3 className="text-2xl font-bold text-slate-800 mb-4">{data.cidadeName}</h3>
+            <div style={{ height: '400px', width: '100%' }}>
+              <Radar data={data.chartData} options={baseOptions} />
+            </div>
           </div>
-        </div>
-
-        <div className="filter-checkboxes">
-          {Object.entries(CATEGORY_INFO).map(([key, info]) => (
-            <label key={key} className="filter-checkbox">
-              <input
-                type="checkbox"
-                checked={selectedCategories.has(key)}
-                onChange={() => toggleCategory(key)}
-              />
-              <span
-                className="checkbox-label"
-                style={{
-                  borderLeft: `4px solid ${info.color}`,
-                  paddingLeft: '8px',
-                }}
-              >
-                {info.label}
-              </span>
-              <span className="checkbox-count">
-                {key === 'iso_37120' ? '(18)' : key === 'iso_37122' ? '(16)' : '(16)'}
-              </span>
-            </label>
-          ))}
-        </div>
+        ))}
       </div>
 
-      {/* GRÁFICO */}
-      <div className="chart-container">
-        <Bar data={chartData} options={options} />
-      </div>
-
-      {/* TABELA */}
-      <div className="indicators-table">
-        <h4>📊 Matriz de Indicadores Normalizada (escala percentual)</h4>
-        <div className="table-responsive">
-          <table>
-            <thead>
+      <div className="mt-8 border-t-2 border-emerald-300 pt-6">
+        <h4 className="text-xl font-bold text-gray-800 mb-4">📋 Consulta Rápida: Valores Brutos Extraídos</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border rounded-lg shadow-sm">
+            <thead className="bg-slate-100">
               <tr>
-                <th>Cidade</th>
-                {filteredData.indicesToShow && filteredData.indicesToShow.map(({ ind, idx }) => (
-                  <th key={idx} title={`${ind} (${getIndicatorCategory(idx)})`}>
-                    <span className="indicator-header">{ind}</span>
-                  </th>
+                <th className="px-4 py-3 border-b border-r text-left font-semibold text-slate-700">Indicador Validado</th>
+                {cidades.map((cidade, i) => (
+                  <th key={i} className="px-4 py-3 border-b text-right font-semibold text-emerald-800">{cidade}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {cidades && cidades.map((cidade, cidadeIdx) => (
-                <tr key={cidadeIdx}>
-                  <td className="city-name"><strong>{cidade}</strong></td>
-                  {filteredData.indicesToShow && filteredData.indicesToShow.map(({ idx }) => (
-                    <td key={idx} className="valor">
-                      {formatNormalizedAsPercent(matrizDecisao[cidadeIdx]?.[idx])}
-                    </td>
-                  ))}
+              {indicadores.map((ind, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-2 border-b border-r font-medium text-slate-600 capitalize">
+                    {ind.replace(/_/g, ' ')}
+                  </td>
+                  {cidades.map((_, cidadeIdx) => {
+                    const val = Number(matrizDecisao[cidadeIdx]?.[ind]) || 0;
+                    return (
+                      <td key={cidadeIdx} className="px-4 py-2 border-b text-right font-mono text-sm text-slate-800">
+                        {val.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

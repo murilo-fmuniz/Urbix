@@ -107,6 +107,7 @@ export default function SmartCityDashboard() {
   }, []);
 
   // SUBMIT PARA API
+  // SUBMIT PARA API CORRIGIDO
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -114,43 +115,65 @@ export default function SmartCityDashboard() {
     setSubmitSuccess(false);
 
     try {
-      // Validar mínimo de 2 cidades
       if (citiesData.length < 2) {
         throw new Error(`Mínimo 2 cidades requeridas. Atualmente: ${citiesData.length} cidade(s)`);
       }
 
-      // ✅ Validar campos obrigatórios em todas as cidades
-      for (let i = 0; i < citiesData.length; i++) {
-        const city = citiesData[i];
-        if (!city.codigo_ibge?.trim()) {
-          throw new Error(`Cidade ${i + 1}: Código IBGE é obrigatório`);
-        }
-        if (city.codigo_ibge.trim().length !== 7 || !/^\d+$/.test(city.codigo_ibge.trim())) {
-          throw new Error(`Cidade ${i + 1}: Código IBGE deve ter exatamente 7 dígitos numéricos`);
-        }
-        if (!city.nome?.trim()) {
-          throw new Error(`Cidade ${i + 1}: Nome da cidade é obrigatório`);
-        }
-      }
+      // 1. Extrair a lista limpa de IBGEs esperada pelo backend
+      const cidades_ibge = citiesData.map(city => city.codigo_ibge.trim());
 
-      // ✅ CORRIGIDO: Payload com TODOS os 47 indicadores (3 ISO standards completos)
-      const payload = citiesData.map((city) => ({
-        codigo_ibge: city.codigo_ibge,
-        nome_cidade: city.nome,
-        manual_indicators: {
-          iso_37120: city.iso_37120,  // ✅ 16 indicadores
-          iso_37122: city.iso_37122,  // ✅ 15 indicadores
-          iso_37123: city.iso_37123,  // ✅ 16 indicadores
-        },
-      }));
+      // 2. Montar as simulações desachatando (flattening) as abas ISO
+      const simulacoes = citiesData.map(city => {
+        // Junta todas as abas em um único objeto flat
+        const todosIndicadores = {
+          ...city.iso_37120,
+          ...city.iso_37122,
+          ...city.iso_37123
+        };
 
-      console.log('📤 Enviando payload (47 indicadores):', JSON.stringify(payload, null, 2));
+        // Filtra apenas o que o usuário realmente preencheu com números
+        const valores_brutos = {};
+        Object.entries(todosIndicadores).forEach(([key, val]) => {
+          if (val !== '' && val !== null && !isNaN(val)) {
+            valores_brutos[key] = Number(val);
+          }
+        });
 
-      // 🔗 Use centralized API client
+        return {
+          codigo_ibge: city.codigo_ibge.trim(),
+          valores_brutos: valores_brutos
+        };
+      });
+
+      // 3. Montar o payload EXATAMENTE como o schemas.py (TopsisSimulationRequest) exige
+      const payload = {
+        cidades_ibge: cidades_ibge,
+        simulacoes: simulacoes
+      };
+
+      console.log('📤 Payload formatado para a API:', JSON.stringify(payload, null, 2));
+
+      // Dispara a requisição (espera receber um Array do backend)
       const data = await getHybridRanking(payload);
-      console.log('✅ Resposta do servidor:', data);
+      console.log('✅ Resposta bruta do servidor:', data);
 
-      setResults(data);
+      // 4. Mapear a resposta do Backend (Array) para o que a UI do React espera (Objeto)
+      const formattedResults = {
+        ranking: data.map(item => ({
+          ...item,
+          indice_smart: item.pontuacao_topsis // Corrige a nomenclatura da UI
+        })),
+        detalhes_calculo: {
+          // Prepara os dados para o Gráfico de Comparação ler
+          matriz_normalizada: data.map(item => ({
+            cidade: item.nome_cidade,
+            ...item.valores_calculados
+          })),
+          indicadores: Object.keys(data[0]?.valores_calculados || {})
+        }
+      };
+
+      setResults(formattedResults);
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 4000);
     } catch (err) {

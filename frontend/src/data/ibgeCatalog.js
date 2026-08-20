@@ -6,7 +6,7 @@ export const IBGE_MUNICIPALITIES = [...(catalog.municipalities ?? [])].sort((a, 
 );
 
 const municipalityByCode = new Map(
-  IBGE_MUNICIPALITIES.map((item) => [String(item.codigo_ibge).trim().zfill(7), item])
+  IBGE_MUNICIPALITIES.map((item) => [String(item.codigo_ibge).trim().padStart(7, '0'), item])
 );
 
 const municipalityByName = new Map(

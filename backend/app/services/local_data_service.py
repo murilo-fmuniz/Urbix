@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
 
+from app.services.local_etl_service import run_local_etl
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +47,10 @@ class LocalDataService:
         if cls._cache is not None:
             return  # Já carregado
         
+        if not cls._json_file_path.exists():
+            logger.info(f"📦 Gerando indicators_master.json em {cls._json_file_path}")
+            run_local_etl()
+
         if not cls._json_file_path.exists():
             logger.error(f"❌ Arquivo não encontrado: {cls._json_file_path}")
             raise FileNotFoundError(f"indicators_master.json não encontrado em {cls._json_file_path}")
