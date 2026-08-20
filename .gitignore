@@ -40,3 +40,6 @@ build/
 # Logs
 # =========================
 *.log
+
+backend/data/planilhas/
+backend/urbix.db
