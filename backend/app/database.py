@@ -1,15 +1,20 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+import os
 
-# Cria um banco de dados local na raiz da pasta backend chamado "urbix.db"
-SQLALCHEMY_DATABASE_URL = "sqlite:///./urbix.db"
 
-# O connect_args={"check_same_thread": False} é necessário apenas para o SQLite no FastAPI
+load_dotenv()  # Carrega variáveis de ambiente do arquivo .env
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./urbix.db")
+
+is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args=connect_args
 )
-
 # Cria a fábrica de sessões do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

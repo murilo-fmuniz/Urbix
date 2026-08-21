@@ -5,6 +5,7 @@ node_modules/
 venv/
 .venv/
 env/
+.env
 
 # =========================
 # Python
