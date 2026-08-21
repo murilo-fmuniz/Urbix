@@ -130,7 +130,7 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "CodMun",
+                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
                 "coluna_valor": "Mhab03",
                 "pandas_kwargs": {"sheet_name": "Habitacao", "header": 0}
             },
@@ -263,7 +263,7 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "CodMun",
+                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
                 "coluna_valor": "Mtic06",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
@@ -293,7 +293,7 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "CodMun",
+                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
                 "coluna_valor": "Mtic10",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
@@ -305,7 +305,8 @@ INDICADORES = {
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
-                "coluna_valor": "ST_ATEND_AMBULATORIAL"
+                "coluna_valor": "ST_ATEND_AMBULATORIAL",
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
             },
             "denominador": "Total Unidades Saúde (CNES)",
             "multiplicador": 100
@@ -315,7 +316,8 @@ INDICADORES = {
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
-                "coluna_valor": "ST_ATEND_AMBULATORIAL"
+                "coluna_valor": "ST_ATEND_AMBULATORIAL",
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
             },
             "denominador": "populacao_total",
             "multiplicador": 100000
@@ -372,7 +374,7 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "CodMun",
+                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
                 "coluna_valor": "Mtic12a1",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
@@ -427,7 +429,8 @@ INDICADORES = {
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
-                "coluna_valor": "ST_ATEND_HOSPITALAR"
+                "coluna_valor": "ST_ATEND_HOSPITALAR",
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
             },
             "denominador": "Total Hospitais (CNES)",
             "multiplicador": 100

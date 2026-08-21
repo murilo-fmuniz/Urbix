@@ -1,16 +1,11 @@
-# backend/app/main.py
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import topsis
+from app.routers import topsis, indicadores # <-- 1. ADICIONEI O INDICADORES AQUI
 from app.database import Base, engine, ensure_sqlite_optimizations
-
-# Se você for usar as outras rotas no futuro, basta descomentar:
-# from app.routers import indicadores, local_data, manual_data
 
 app = FastAPI(
     title="Urbix API - Offline Engine",
-    description="Motor matemático TOPSIS para análise de Smart Cities (100% Offline)",
+    description="Motor matemático TOPSIS para análise de Smart Cities",
     version="2.0.0"
 )
 
@@ -25,9 +20,7 @@ app.add_middleware(
 
 # Registrando apenas a rota do Cérebro Matemático
 app.include_router(topsis.router)
-# app.include_router(indicadores.router)
-# app.include_router(local_data.router)
-# app.include_router(manual_data.router)
+app.include_router(indicadores.router) # <-- 2. TIREI O COMENTÁRIO DESTA LINHA
 
 
 @app.on_event("startup")

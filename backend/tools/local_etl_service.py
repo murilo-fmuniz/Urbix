@@ -1,5 +1,3 @@
-# tools/local_etl_service.py
-
 import csv
 import gzip
 import json
@@ -75,12 +73,19 @@ def _normalizar_codigo_ibge(valor) -> str | None:
     codigo = re.sub(r"\D", "", str(valor)).strip()
     if not codigo:
         return None
+        
+    # Se o código tem 7 dígitos (ou mais), tenta achar no dicionário oficial
     if len(codigo) >= 7:
         codigo = codigo[-7:]
-        return IBGE_LOOKUP.get(codigo) or IBGE_LOOKUP.get(codigo[:6]) or codigo
+        # Só retorna se existir de verdade no IBGE_LOOKUP
+        return IBGE_LOOKUP.get(codigo) or IBGE_LOOKUP.get(codigo[:6])
+        
+    # Se tem 6 dígitos, tenta achar também
     if len(codigo) == 6:
-        return IBGE_LOOKUP.get(codigo) or codigo.zfill(7)
-    return codigo.zfill(7)
+        return IBGE_LOOKUP.get(codigo)
+        
+    # Se não for nada disso, é lixo (como 0999999). Devolve None para o script ignorar.
+    return None
 
 
 def _ler_csv_flexivel(caminho: Path, kwargs: dict):
@@ -177,11 +182,16 @@ def _salvar_lote_streaming(db_session, registros: list[ValorIndicador], id_varia
     if not registros:
         return 0
 
-    db_session.bulk_save_objects(registros)
-    db_session.commit()
-    total = len(registros)
-    print(f"✅ {id_variavel}: {total} registros salvos em lote ({origem})")
-    return total
+    try:
+        db_session.bulk_save_objects(registros)
+        db_session.commit()
+        total = len(registros)
+        print(f"✅ {id_variavel}: {total} registros salvos em lote ({origem})")
+        return total
+    except Exception as e:
+        db_session.rollback() # O nosso famoso escudo Anti-Dominó!
+        print(f"❌ Lixo ignorado no lote de {id_variavel} ({origem}) - Transação protegida.")
+        return 0
 
 
 def _resolver_caminho_arquivo(arquivo: str) -> Path | None:
@@ -225,6 +235,20 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
     if not col_codigo or not col_valor or col_valor == "VERIFICAR_NO_EXCEL":
         return
 
+    # -------------------------------------------------------------
+    # 🚀 O SEGREDO 1: Cadastra o 'numerador' como um indicador base!
+    # Sem isso, o banco bloqueia dizendo que o indicador não existe.
+    # -------------------------------------------------------------
+    try:
+        db_session.execute(text(f"""
+            INSERT INTO indicadores (id, nome, norma_iso, peso, impacto)
+            VALUES ('{id_variavel}', '{id_variavel}', 'Base', 1.0, 1)
+            ON CONFLICT (id) DO NOTHING;
+        """))
+        db_session.commit()
+    except Exception:
+        db_session.rollback()
+
     print(f"🔄 Lendo {id_variavel} ({caminho_completo.name}) em streaming...")
 
     try:
@@ -245,7 +269,6 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
             col_codigo_real = _escolher_melhor_coluna(chunk.columns, col_codigo)
             col_valor_real = _escolher_melhor_coluna(chunk.columns, col_valor)
             if not col_codigo_real or not col_valor_real:
-                print(f"⚠️ {id_variavel}: chunk {chunk_num} sem colunas esperadas ({col_codigo} / {col_valor})")
                 continue
 
             df_chunk = chunk[[col_codigo_real, col_valor_real]].copy()
@@ -275,11 +298,17 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
             for row in df_chunk.itertuples(index=False):
                 codigo_ibge = getattr(row, "codigo_ibge")
                 valor = getattr(row, "valor_numerico")
-                if not codigo_ibge or pd.isna(valor):
+                
+                # -------------------------------------------------------------
+                # 🚀 O SEGREDO 2: Filtra os lixos oficiais antes de salvar!
+                # -------------------------------------------------------------
+                str_codigo = str(codigo_ibge)
+                if not str_codigo or pd.isna(valor) or str_codigo in ["0999999", "9999999"] or len(str_codigo) != 7:
                     continue
+                    
                 registros_lote.append(
                     ValorIndicador(
-                        codigo_ibge=str(codigo_ibge),
+                        codigo_ibge=str_codigo,
                         id_indicador=id_variavel,
                         ano_referencia=ano_padrao,
                         valor=float(valor),
@@ -288,14 +317,12 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
                 )
 
             total_processado += _salvar_lote_streaming(db_session, registros_lote, id_variavel, f"chunk {chunk_num}")
-            print(f"📊 {id_variavel}: chunk {chunk_num} processado; acumulado {total_processado} registros.")
 
         if total_processado == 0:
-            print(f"⚠️ {id_variavel}: nenhum registro foi processado no arquivo {caminho_completo.name}.")
+            print(f"⚠️ {id_variavel}: nenhum registro foi processado.")
 
     except Exception as exc:
         print(f"❌ ERRO em {id_variavel}: {exc}")
-
 
 # ==============================================================================
 # NOVOS MOTORES HÍBRIDOS (API PÚBLICA SIDRA E SICONFI)
@@ -315,22 +342,40 @@ def extrair_dado_base_sidra(id_variavel: str, config: dict, db_session):
             print(f"❌ JSON inválido na API SIDRA {id_variavel}: {exc}")
             return
 
-        if not isinstance(dados, list):
+        if not isinstance(dados, list) or len(dados) == 0:
             print(f"❌ Resposta inesperada da API SIDRA {id_variavel}: tipo={type(dados).__name__}")
             return
 
+        # 1. A MÁGICA: Descobre dinamicamente a coluna correta do IBGE lendo o cabeçalho
+        header = dados[0]
+        col_municipio = None
+        for key, value in header.items():
+            if value == "Município (Código)":
+                col_municipio = key
+                break
+                
+        if not col_municipio:
+            print(f"❌ Coluna de município não encontrada no payload de {id_variavel}.")
+            return
+
         registros_lote = []
-        for registro in dados:
+        # 2. Pula o cabeçalho (dados[1:]) e processa só os valores
+        for registro in dados[1:]:
             if not isinstance(registro, dict):
-                continue
-            if "D1C" not in registro or registro["D1C"] == "Município (Código)":
                 continue
 
             if id_variavel == "forca_de_trabalho":
-                if registro.get("D2N") != "Força de trabalho" or registro.get("D3N") != "Total" or registro.get("D4N") != "Total":
+                # O IBGE atualizou a API. Agora filtramos pelo Total (D4N e D5N)
+                if registro.get("D4N") != "Total" or registro.get("D5N") != "Total":
                     continue
 
-            ibge_7 = str(registro["D1C"]).strip()
+            # 3. Puxa pela coluna dinâmica
+            ibge_7 = str(registro.get(col_municipio, "")).strip()
+            
+            # Ignora lixos ou agregados estaduais/nacionais (município sempre tem 7 dígitos)
+            if not ibge_7 or len(ibge_7) != 7:
+                continue
+
             try:
                 valor_float = float(registro["V"])
                 if id_variavel == "pib_absoluto":
@@ -356,13 +401,15 @@ def extrair_dado_base_sidra(id_variavel: str, config: dict, db_session):
             print(f"⚠️ API {id_variavel}: nenhuma linha válida foi extraída do payload.")
 
     except Exception as e:
+        # 4. PREVINE O EFEITO DOMINÓ: Limpa a transação com erro para as próximas APIs funcionarem
+        db_session.rollback()
         print(f"❌ ERRO API {id_variavel}: {e}")
 
-
 def extrair_receita_siconfi(id_variavel: str, db_session):
-    """Faz loops em todos os municípios cadastrados para consultar a Receita Corrente Líquida."""
+    """Faz loops em todos os municípios cadastrados consultando o Tesouro Nacional com micro-sessões."""
     print(f"🌐 Buscando {id_variavel} via API SICONFI (Tesouro Nacional)...")
 
+    # A db_session original é usada APENAS para buscar a lista de cidades no começo
     cidades = db_session.query(Municipio.codigo_ibge).order_by(Municipio.codigo_ibge.asc()).all()
     if not cidades:
         print("⚠️ SICONFI: nenhuma cidade disponível na base para consulta.")
@@ -371,9 +418,12 @@ def extrair_receita_siconfi(id_variavel: str, db_session):
     registros_lote = []
     base_url = "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rreo"
     total_cidades = len(cidades)
+    total_inseridos = 0 
 
     for index, (ibge,) in enumerate(cidades, start=1):
-        print(f"🌐 Processando cidade {index}/{total_cidades}: {ibge}")
+        if index % 50 == 0:
+            print(f"🌐 Processando cidade {index}/{total_cidades}: {ibge}...")
+            
         params = {
             "an_exercicio": 2023,
             "nr_periodo": 6,
@@ -382,7 +432,6 @@ def extrair_receita_siconfi(id_variavel: str, db_session):
             "id_ente": ibge,
         }
         try:
-            print(f"⏳ Aguardando resposta da API SICONFI para {ibge}...")
             res = requests.get(base_url, params=params, timeout=10)
             if res.status_code == 200:
                 payload = res.json()
@@ -390,29 +439,53 @@ def extrair_receita_siconfi(id_variavel: str, db_session):
                 for item in items:
                     if item.get("cod_conta") == "RREO3ReceitaCorrenteLiquida":
                         valor = item.get("valor")
-                        if valor is None:
-                            continue
-                        registros_lote.append(
-                            ValorIndicador(
-                                codigo_ibge=ibge,
-                                id_indicador=id_variavel,
-                                ano_referencia=2023,
-                                valor=float(valor),
-                                fonte="API SICONFI / RREO",
+                        if valor is not None:
+                            registros_lote.append(
+                                ValorIndicador(
+                                    codigo_ibge=ibge,
+                                    id_indicador=id_variavel,
+                                    ano_referencia=2023,
+                                    valor=float(valor),
+                                    fonte="API SICONFI / RREO",
+                                )
                             )
-                        )
                         break
-            else:
-                print(f"⚠️ SICONFI resposta não-200 para {ibge}: {res.status_code}")
-        except Exception as exc:
-            print(f"❌ ERRO SICONFI em {ibge}: {exc}")
+        except Exception:
+            pass 
 
         time.sleep(0.15)
 
+        # ---------------------------------------------------------
+        # 🚀 O SEGREDO: Abre uma NOVA sessão "Miojo" só pra salvar e fecha
+        # ---------------------------------------------------------
+        if len(registros_lote) >= 200:
+            temp_db = SessionLocal() # Abre conexão fresca!
+            try:
+                temp_db.bulk_save_objects(registros_lote)
+                temp_db.commit()
+                total_inseridos += len(registros_lote)
+                print(f"💾 Lote salvo com conexão nova! ({total_inseridos} receitas garantidas)")
+            except Exception as e:
+                temp_db.rollback()
+                print(f"❌ Erro ao salvar lote parcial: {e}")
+            finally:
+                temp_db.close() # Mata a conexão para o Neon não reclamar
+                registros_lote = [] 
+
+    # Salva os últimos registros que sobraram
     if registros_lote:
-        db_session.bulk_save_objects(registros_lote)
-        db_session.commit()
-        print(f"✅ API SICONFI: {len(registros_lote)} municípios inseridos com cobertura completa da base! ")
+        temp_db = SessionLocal()
+        try:
+            temp_db.bulk_save_objects(registros_lote)
+            temp_db.commit()
+            total_inseridos += len(registros_lote)
+        except Exception as e:
+            temp_db.rollback()
+        finally:
+            temp_db.close()
+
+    print(f"✅ API SICONFI: {total_inseridos} municípios inseridos com cobertura completa da base!")
+
 
 
 def atualizar_snapshot_latest(db_session):
@@ -486,6 +559,9 @@ def run():
     print("🚀 INICIANDO PIPELINE ETL URBIX HÍBRIDO (STREAMING + APIS)")
     print("=" * 60)
 
+    # 🧹 FAXINA GERAL: Apaga as tabelas sujas do Neon antes de recriar
+    #  Base.metadata.drop_all(bind=engine)
+    
     Base.metadata.create_all(bind=engine)
     print("ℹ️ Semeando metadados de municípios e indicadores antes da carga de fatos.")
     metadata_status = seed_metadata()
@@ -493,8 +569,24 @@ def run():
 
     db = SessionLocal()
 
-    print("ℹ️ ETL em modo incremental: mantendo dados históricos existentes e inserindo/atualizando novas cargas.")
+    print("ℹ️ Cadastrando indicadores base no banco de dados...")
+    try:
+        db.execute(text("""
+            INSERT INTO indicadores (id, nome, norma_iso, peso, impacto) VALUES 
+            ('populacao_total', 'População Total', 'Base', 1.0, 1),
+            ('pib_absoluto', 'PIB Absoluto', 'Base', 1.0, 1),
+            ('forca_de_trabalho', 'Força de Trabalho', 'Base', 1.0, 1),
+            ('total_domicilios', 'Total de Domicílios', 'Base', 1.0, 1),
+            ('receita_total_municipio', 'Receita Total do Município', 'Base', 1.0, 1)
+            ON CONFLICT (id) DO NOTHING;
+        """))
+        db.commit()
+        print("✅ Indicadores base cadastrados com sucesso!")
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ Aviso ao criar indicadores base: {e}")
 
+    print("ℹ️ ETL em modo incremental: mantendo dados históricos existentes e inserindo/atualizando novas cargas.")
     print("\n--- EXTRAINDO DADOS BASE VIA APIS PÚBLICAS ---")
     apis_ibge = {
         "populacao_total": {"url": "https://apisidra.ibge.gov.br/values/t/6579/p/2025/n6/all/v/9324?formato=json", "ano": 2025, "fonte": "SIDRA (6579)"},
@@ -503,10 +595,20 @@ def run():
         "total_domicilios": {"url": "https://apisidra.ibge.gov.br/values/t/9922/p/2022/n6/all/v/381/c1/6795?formato=json", "ano": 2022, "fonte": "SIDRA Censo (9922)"},
     }
 
+    ''' DADOS DE APIS SIDRA E SICONFI DESATIVADOS TEMPORARIAMENTE PARA TESTES LOCAIS
     for id_var, config in apis_ibge.items():
         extrair_dado_base_sidra(id_var, config, db)
 
     extrair_receita_siconfi("receita_total_municipio", db)
+    '''
+
+
+    # -------------------------------------------------------------
+    # 🔄 O SEGREDO: Refrescar a conexão principal depois de muita demora!
+    # -------------------------------------------------------------
+    print("\n🔄 Atualizando conexão principal com o banco (Anti-Timeout)...")
+    db.close()              # Fecha a conexão velha que ficou ociosa
+    db = SessionLocal()     # Abre uma conexão novinha em folha!
 
     print("\n--- EXTRAINDO PLANILHAS LOCAIS COMPLEXAS (STREAMING POR CHUNKS) ---")
     for dominio, indicadores in INDICADORES.items():
