@@ -237,7 +237,6 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
 
     # -------------------------------------------------------------
     # 🚀 O SEGREDO 1: Cadastra o 'numerador' como um indicador base!
-    # Sem isso, o banco bloqueia dizendo que o indicador não existe.
     # -------------------------------------------------------------
     try:
         db_session.execute(text(f"""
@@ -283,7 +282,17 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
             df_chunk["codigo_ibge"] = df_chunk[col_codigo_real].map(_normalizar_codigo_ibge)
             df_chunk = df_chunk[df_chunk["codigo_ibge"].notna()].copy()
 
-            df_chunk[col_valor_real] = df_chunk[col_valor_real].astype(str)
+            df_chunk[col_valor_real] = df_chunk[col_valor_real].astype(str).str.strip()
+            
+            # -------------------------------------------------------------
+            # 🚀 O SEGREDO 3: Tradutor Universal Qualitativo para o TOPSIS!
+            # -------------------------------------------------------------
+            mapa_quali = {
+                "Sim": "1", "Não": "0", "SIM": "1", "NÃO": "0", "NAO": "0", 
+                "sim": "1", "não": "0", "nao": "0", "S": "1", "N": "0"
+            }
+            df_chunk[col_valor_real] = df_chunk[col_valor_real].replace(mapa_quali)
+
             df_chunk["valor_numerico"] = (
                 df_chunk[col_valor_real]
                 .str.replace(r"[^0-9,.-]", "", regex=True)
@@ -364,15 +373,10 @@ def extrair_dado_base_sidra(id_variavel: str, config: dict, db_session):
             if not isinstance(registro, dict):
                 continue
 
-            if id_variavel == "forca_de_trabalho":
-                # O IBGE atualizou a API. Agora filtramos pelo Total (D4N e D5N)
-                if registro.get("D4N") != "Total" or registro.get("D5N") != "Total":
-                    continue
-
             # 3. Puxa pela coluna dinâmica
             ibge_7 = str(registro.get(col_municipio, "")).strip()
             
-            # Ignora lixos ou agregados estaduais/nacionais (município sempre tem 7 dígitos)
+            # Ignora lixos ou agregados estaduais/nacionais
             if not ibge_7 or len(ibge_7) != 7:
                 continue
 
@@ -595,13 +599,12 @@ def run():
         "total_domicilios": {"url": "https://apisidra.ibge.gov.br/values/t/9922/p/2022/n6/all/v/381/c1/6795?formato=json", "ano": 2022, "fonte": "SIDRA Censo (9922)"},
     }
 
-    ''' DADOS DE APIS SIDRA E SICONFI DESATIVADOS TEMPORARIAMENTE PARA TESTES LOCAIS
+    # Descomentado para baixar Força de Trabalho e Censo rápido:
     for id_var, config in apis_ibge.items():
         extrair_dado_base_sidra(id_var, config, db)
 
-    extrair_receita_siconfi("receita_total_municipio", db)
-    '''
-
+    # Mantenha o SICONFI comentado para ir rápido!
+    # extrair_receita_siconfi("receita_total_municipio", db)
 
     # -------------------------------------------------------------
     # 🔄 O SEGREDO: Refrescar a conexão principal depois de muita demora!

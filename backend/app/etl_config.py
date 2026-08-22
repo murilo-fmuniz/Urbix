@@ -6,10 +6,6 @@ Separa as Variáveis Base (Denominadores) dos Indicadores TOPSIS (Calculados).
 # ==========================================
 # 📊 1. DADOS BASE (Variáveis de Normalização)
 # ==========================================
-# Estes dados são extraídos primeiro e usados como denominador nos cálculos matemáticos.
-# Política de dados ausentes: ausência de valor não gera zero artificial.
-# Valores reais devem ser mantidos; cadeias sem apoio documental continuam marcadas como pendentes.
-
 DADOS_BASE = {
     "populacao_total": {
         "arquivo": "Estimativas de Pupulacao/POP2025_20260113.xls",
@@ -47,15 +43,10 @@ DADOS_BASE = {
     }
 }
 
-
 # ==========================================
 # 🎯 2. INDICADORES TOPSIS (50 Indicadores)
 # ==========================================
-# Cada indicador define se é "direto" (já vem calculado da fonte) ou se depende
-# de um "numerador" da planilha cruzado com um "denominador" dos DADOS_BASE.
-
 INDICADORES = {
-    
     # ------------------------------------------
     # 💰 ECONOMIA E GOVERNANÇA
     # ------------------------------------------
@@ -92,7 +83,7 @@ INDICADORES = {
             "multiplicador": 100
         },
         "orcamento_per_capita": {
-            "tipo_calculo": "direto", # Já fornecido calculado pelo IBGE
+            "tipo_calculo": "direto", 
             "variavel_direta": {
                 "arquivo": "PIB_Municipios/base_de_dados_2010_2023_xlsx/PIB dos Municípios - base de dados 2010-2023.xlsx",
                 "coluna_codigo": "Código do Município",
@@ -130,7 +121,7 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
+                "coluna_codigo": "Cod Munic", 
                 "coluna_valor": "Mhab03",
                 "pandas_kwargs": {"sheet_name": "Habitacao", "header": 0}
             },
@@ -231,7 +222,7 @@ INDICADORES = {
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
-                "coluna_valor": "saldomovimentação" # Requer filtro de CBO no script
+                "coluna_valor": "saldomovimentação" 
             },
             "denominador": "forca_de_trabalho",
             "multiplicador": 100
@@ -263,11 +254,11 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
+                "coluna_codigo": "Cod Munic", 
                 "coluna_valor": "Mtic06",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
-            "denominador": "Total Pontos Iluminação (MUNIC)",
+            "denominador": "total_domicilios",
             "multiplicador": 100
         },
         "medidores_inteligentes_energia": {
@@ -293,11 +284,11 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
+                "coluna_codigo": "Cod Munic", 
                 "coluna_valor": "Mtic10",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
-            "denominador": "Total Serviços Ofertados (MUNIC)",
+            "denominador": "populacao_total",
             "multiplicador": 100
         },
         "prontuario_eletronico": {
@@ -306,9 +297,9 @@ INDICADORES = {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
                 "coluna_valor": "ST_ATEND_AMBULATORIAL",
-                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} 
             },
-            "denominador": "Total Unidades Saúde (CNES)",
+            "denominador": "populacao_total",
             "multiplicador": 100
         },
         "consultas_remotas": {
@@ -317,7 +308,7 @@ INDICADORES = {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
                 "coluna_valor": "ST_ATEND_AMBULATORIAL",
-                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} 
             },
             "denominador": "populacao_total",
             "multiplicador": 100000
@@ -374,11 +365,11 @@ INDICADORES = {
             "tipo_calculo": "porcentagem",
             "numerador": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", # <-- CORRIGIDO AQUI
+                "coluna_codigo": "Cod Munic", 
                 "coluna_valor": "Mtic12a1",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
             },
-            "denominador": "Total Escolas (INEP)",
+            "denominador": "populacao_total",
             "multiplicador": 100
         },
         "seguros_ameacas": {
@@ -430,9 +421,9 @@ INDICADORES = {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
                 "coluna_valor": "ST_ATEND_HOSPITALAR",
-                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} # <-- CORRIGIDO AQUI
+                "pandas_kwargs": {"encoding": "latin1", "sep": ";"} 
             },
-            "denominador": "Total Hospitais (CNES)",
+            "denominador": "populacao_total",
             "multiplicador": 100
         },
         "seguro_saude_basico": {

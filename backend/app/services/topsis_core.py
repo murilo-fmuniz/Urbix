@@ -271,7 +271,7 @@ def preparar_matriz_decisao(cidades_ibge: List[str], simulacoes: List[dict], db_
                 if denominador_chave:
                     ids_necessarios.add(denominador_chave)
 
-    # 1. Busca apenas o registro mais recente por cidade + indicador (usa ano_referencia)
+    # 1. Busca apenas o registro mais recente por cidade + indicador
     registros = _buscar_valores_mais_recentes(db_session, cidades_ibge, ids_necessarios)
 
     # Organiza em um dicionário estruturado: dict[cidade][id_indicador] = valor
@@ -319,19 +319,18 @@ def preparar_matriz_decisao(cidades_ibge: List[str], simulacoes: List[dict], db_
 
     df = pd.DataFrame(matriz_final).set_index("codigo_ibge")
 
-    # Descarta colunas sem informação útil para a comparação atual.
-    # Isso evita que indicadores faltantes sejam tratados como zeros reais e
-    # reduz a carga computacional do TOPSIS para o subconjunto solicitado.
+    # 4. LIMPEZA RELAXADA: Envia para o frontend tudo o que for válido
     colunas_uteis = []
     for col in df.columns:
         serie = df[col]
         valores_reais = serie.dropna()
         if valores_reais.empty:
             continue
-        if (valores_reais == 0).all():
-            continue
-        if serie.isna().mean() > 0.5:
-            continue
+        
+        # ⚠️ REGRAS RÍGIDAS DESATIVADAS PARA EXIBIÇÃO NO REACT:
+        # if (valores_reais == 0).all(): continue
+        # if serie.isna().mean() > 0.5: continue
+        
         colunas_uteis.append(col)
 
     return df[colunas_uteis]
@@ -356,11 +355,10 @@ def aplicar_topsis(df: pd.DataFrame, pesos: dict, impactos: dict) -> List[dict]:
 
         impacto = impactos.get(col, 1)
 
-        # Se o indicador não tem informação útil para a comparação atual,
-        # o melhor é removê-lo do cálculo; zeros artificiais não devem dominar a ordem.
-        if df[col].notna().sum() <= 1:
-            df = df.drop(columns=[col])
-            continue
+        # ⚠️ REGRA DE VARIÂNCIA DESATIVADA:
+        # if df[col].notna().sum() <= 1:
+        #    df = df.drop(columns=[col])
+        #    continue
 
         if impacto == 1:
             pior_valor = 0.0
@@ -371,8 +369,7 @@ def aplicar_topsis(df: pd.DataFrame, pesos: dict, impactos: dict) -> List[dict]:
 
     # 2. Normalização Vetorial (Divisão pela raiz da soma dos quadrados)
     norm_divisor = np.sqrt((df ** 2).sum(axis=0))
-    # Evita divisão por zero
-    norm_divisor = norm_divisor.replace(0, 1) 
+    norm_divisor = norm_divisor.replace(0, 1) # Evita que variáveis zeradas quebrem a matemática
     df_norm = df / norm_divisor
 
     # 3. Ponderação (Multiplicação pelos pesos)
@@ -398,7 +395,6 @@ def aplicar_topsis(df: pd.DataFrame, pesos: dict, impactos: dict) -> List[dict]:
 
     # 6. Coeficiente de Proximidade (Pontuação Final 0 a 1)
     soma_distancias = dist_positiva + dist_negativa
-    # Evita divisão por zero se todas as cidades forem idênticas
     soma_distancias = soma_distancias.replace(0, 1)
     
     pontuacao = dist_negativa / soma_distancias
