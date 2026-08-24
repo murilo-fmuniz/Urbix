@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { getHybridRanking } from '../services/api';
+import { getHybridRanking, getIndicadores } from '../services/api';
 import CityInputForm from '../components/CityInputForm';
 import RankingTable from '../components/RankingTable';
 import IndicatorsComparisonChart from '../components/IndicatorsComparisonChart';
 import './RankingPage.css';
-import React, { useState } from 'react';
-import { getHybridRanking, getIndicadores } from '../services/api'; // <-- Adicione o getIndicadores aqui!
-import CityInputForm from '../components/CityInputForm';
 
 function RankingPage() {
   const [loading, setLoading] = useState(false);
