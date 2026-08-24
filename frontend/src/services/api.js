@@ -119,17 +119,6 @@ export const getSnapshots = async (codigoIBGE) => {
 // INDICADORES - GET (Consulta)
 // ==========================================
 
-
-export const getIndicadores = async (filtros = {}) => {
-  const params = new URLSearchParams();
-  if (filtros.cidade) params.append('cidade', filtros.cidade);
-  if (filtros.norma) params.append('norma', filtros.norma);
-  if (filtros.grande_area) params.append('grande_area', filtros.grande_area);
-  
-  const response = await api.get(`/indicadores?${params.toString()}`);
-  return response.data;
-};
-
 export const getIndicadorDetalhes = async (codigoIndicador) => {
   const response = await api.get(`/indicadores/${codigoIndicador}`);
   return response.data;
@@ -316,6 +305,19 @@ export const obterHistoricoRankings = async (limit = 24) => {
 export const obterRankingPeriodo = async (periodoReferencia) => {
   const response = await api.get(`/manual-data/rankings/periodo/${periodoReferencia}`);
   return response.data;
+};
+
+// Adicione isso no seu src/services/api.js
+export const getIndicadores = async () => {
+  // Ajuste o 'api.get' ou 'fetch' conforme o padrão que você já usa nesse arquivo
+  try {
+    // Exemplo usando axios (se for fetch, ajuste para response.json())
+    const response = await api.get('/indicadores'); 
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao buscar catálogo de indicadores:", error);
+    return []; // Retorna vazio se der erro, para não quebrar a tela
+  }
 };
 
 export default api;

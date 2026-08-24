@@ -11,7 +11,7 @@ import {
   Shield,
 } from 'lucide-react';
 import IndicatorsComparisonChart from './IndicatorsComparisonChart';
-import { getHybridRanking } from '../services/api';
+import { getHybridRanking, getIndicadores } from '../services/api';
 import { INDICADORES_CONFIG, INDICADORES_INICIAL } from './ManualDataForm';
 import { getMunicipalitiesByNames } from '../data/ibgeCatalog';
 
@@ -119,19 +119,15 @@ export default function SmartCityDashboard() {
         throw new Error(`Mínimo 2 cidades requeridas. Atualmente: ${citiesData.length} cidade(s)`);
       }
 
-      // 1. Extrair a lista limpa de IBGEs esperada pelo backend
       const cidades_ibge = citiesData.map(city => city.codigo_ibge.trim());
 
-      // 2. Montar as simulações desachatando (flattening) as abas ISO
       const simulacoes = citiesData.map(city => {
-        // Junta todas as abas em um único objeto flat
         const todosIndicadores = {
           ...city.iso_37120,
           ...city.iso_37122,
           ...city.iso_37123
         };
 
-        // Filtra apenas o que o usuário realmente preencheu com números
         const valores_brutos = {};
         Object.entries(todosIndicadores).forEach(([key, val]) => {
           if (val !== '' && val !== null && !isNaN(val)) {
@@ -145,31 +141,47 @@ export default function SmartCityDashboard() {
         };
       });
 
-      // 3. Montar o payload EXATAMENTE como o schemas.py (TopsisSimulationRequest) exige
       const payload = {
         cidades_ibge: cidades_ibge,
         simulacoes: simulacoes
       };
 
-      console.log('📤 Payload formatado para a API:', JSON.stringify(payload, null, 2));
+      // 🚀 AQUI ESTÁ A MÁGICA: Puxa o ranking E o catálogo de indicadores ao mesmo tempo
+      const [data, infoIndicadores] = await Promise.all([
+        getHybridRanking(payload),
+        getIndicadores().catch(() => []) // Previne erro caso a rota falhe
+      ]);
 
-      // Dispara a requisição (espera receber um Array do backend)
-      const data = await getHybridRanking(payload);
-      console.log('✅ Resposta bruta do servidor:', data);
+      // 🚀 Mapeia Pesos e Impactos do Backend
+      const pesosMap = {};
+      const impactosMap = {};
+      if (infoIndicadores && infoIndicadores.length > 0) {
+        infoIndicadores.forEach(ind => {
+          pesosMap[ind.id] = ind.peso;
+          impactosMap[ind.id] = ind.impacto;
+        });
+      }
 
-      // 4. Mapear a resposta do Backend (Array) para o que a UI do React espera (Objeto)
+      // Extrai os nomes dos indicadores que vieram no cálculo
+      const indicadoresNomes = Object.keys(data[0]?.valores_calculados || {});
+      
+      // Cria os arrays de pesos e impactos na mesma ordem (com fallback de segurança)
+      const pesosExtraidos = indicadoresNomes.map(nome => pesosMap[nome] ?? 0.02);
+      const impactosExtraidos = indicadoresNomes.map(nome => impactosMap[nome] ?? 1);
+
       const formattedResults = {
         ranking: data.map(item => ({
           ...item,
-          indice_smart: item.pontuacao_topsis // Corrige a nomenclatura da UI
+          indice_smart: item.pontuacao_topsis 
         })),
         detalhes_calculo: {
-          // Prepara os dados para o Gráfico de Comparação ler
           matriz_normalizada: data.map(item => ({
             cidade: item.nome_cidade,
             ...item.valores_calculados
           })),
-          indicadores: Object.keys(data[0]?.valores_calculados || {})
+          indicadores: indicadoresNomes,
+          pesos: pesosExtraidos,      // INJETANDO NA TELA
+          impactos: impactosExtraidos // INJETANDO NA TELA
         }
       };
 

@@ -4,6 +4,9 @@ import CityInputForm from '../components/CityInputForm';
 import RankingTable from '../components/RankingTable';
 import IndicatorsComparisonChart from '../components/IndicatorsComparisonChart';
 import './RankingPage.css';
+import React, { useState } from 'react';
+import { getHybridRanking, getIndicadores } from '../services/api'; // <-- Adicione o getIndicadores aqui!
+import CityInputForm from '../components/CityInputForm';
 
 function RankingPage() {
   const [loading, setLoading] = useState(false);
@@ -17,7 +20,7 @@ function RankingPage() {
     setResult(null);
 
     try {
-      // ✅ Validar que todas as cidades têm código IBGE e nome
+      // ✅ Validações
       const incompleteCities = cities.filter(
         c => !c.codigo_ibge?.trim() || !c.nome_cidade?.trim()
       );
@@ -25,20 +28,16 @@ function RankingPage() {
         throw new Error(`${incompleteCities.length} cidade(s) sem Código IBGE ou Nome preenchidos`);
       }
 
-      // ✅ Validar mínimo 2 cidades
       if (cities.length < 2) {
         throw new Error(`Mínimo 2 cidades requeridas para TOPSIS. Recebido: ${cities.length}`);
       }
 
-      // 1. Extrair a lista de IBGEs para o schema do backend
+      // 1. Extrair IBGEs e montar Simulações
       const cidades_ibge = cities.map(city => city.codigo_ibge.trim());
-
-      // 2. Montar as simulações no formato flat (valores_brutos)
       const simulacoes = cities.map(city => {
         const raw = city.manual_indicators || {};
         const valores_brutos = {};
         
-        // Garante que só mandamos números válidos para o Pydantic
         Object.entries(raw).forEach(([k, v]) => {
           if (v !== '' && v !== null && !isNaN(v)) {
             valores_brutos[k] = Number(v);
@@ -51,28 +50,53 @@ function RankingPage() {
         };
       });
 
-      // 3. Montar o payload no padrão exato do TopsisSimulationRequest
       const payload = {
         cidades_ibge: cidades_ibge,
         simulacoes: simulacoes
       };
 
       console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
-      const data = await getHybridRanking(payload);
+      
+      // ✅ A MÁGICA ACONTECE AQUI: Dispara as duas consultas ao mesmo tempo (Cálculo + Catálogo)
+      const [data, infoIndicadores] = await Promise.all([
+        getHybridRanking(payload),
+        getIndicadores().catch(() => []) // Fallback de segurança se a rota falhar
+      ]);
+      
       console.log('📥 Resultado recebido (bruto):', data);
 
-      // 4. Traduzir a resposta (Array) para o formato que a UI da RankingPage espera (Objeto)
+      // ✅ Mapeando os Pesos e Impactos do Backend
+      const pesosMap = {};
+      const impactosMap = {};
+      
+      if (infoIndicadores && infoIndicadores.length > 0) {
+        infoIndicadores.forEach(ind => {
+          pesosMap[ind.id] = ind.peso;
+          impactosMap[ind.id] = ind.impacto;
+        });
+      }
+
+      // Extrai os nomes que o TOPSIS usou no cálculo
+      const indicadoresNomes = Object.keys(data[0]?.valores_calculados || {});
+      
+      // Constrói os arrays de Pesos e Impactos na mesma ordem (com valores de fallback)
+      const pesosExtraidos = indicadoresNomes.map(nome => pesosMap[nome] ?? 0.02);
+      const impactosExtraidos = indicadoresNomes.map(nome => impactosMap[nome] ?? 1);
+
+      // 4. Traduzir a resposta para a Interface
       const rankingResult = {
         ranking: data.map(item => ({
           ...item,
-          indice_smart: item.pontuacao_topsis // Ajuste do nome da variável
+          indice_smart: item.pontuacao_topsis
         })),
         detalhes_calculo: {
           matriz_normalizada: data.map(item => ({
             cidade: item.nome_cidade,
             ...item.valores_calculados
           })),
-          indicadores_nomes: Object.keys(data[0]?.valores_calculados || {})
+          indicadores_nomes: indicadoresNomes,
+          pesos: pesosExtraidos,      // 🚀 INJETADO NA TELA!
+          impactos: impactosExtraidos // 🚀 INJETADO NA TELA!
         }
       };
 
