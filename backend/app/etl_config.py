@@ -1,6 +1,7 @@
 """
 Configuração central de roteamento do Datalake Urbix.
-Separa as Variáveis Base (Denominadores) dos Indicadores TOPSIS (Calculados).
+Mapeamento com a estrutura completa de todos os indicadores das normas ISO.
+Indicadores sem dados recebem a flag "NÃO_BAIXADO" e são ignorados em tempo de execução pelo ETL.
 """
 
 # ==========================================
@@ -18,7 +19,7 @@ DADOS_BASE = {
     "pib_absoluto": {
         "arquivo": "PIB_Municipios/base_de_dados_2010_2023_xlsx/PIB dos Municípios - base de dados 2010-2023.xlsx",
         "coluna_codigo": "Código do Município",
-        "coluna_valor": "Produto Interno Bruto, a preços correntes (R$ 1,00)",
+        "coluna_valor": "Produto Interno Bruto, a preços correntes (R$ 1.000)",
         "pandas_kwargs": {"sheet_name": "PIB dos Municípios", "header": 0},
         "status": "validado_localmente",
         "fonte": "IBGE / PIB municipal"
@@ -44,22 +45,23 @@ DADOS_BASE = {
 }
 
 # ==========================================
-# 🎯 2. INDICADORES TOPSIS (50 Indicadores)
+# 🎯 2. INDICADORES TOPSIS (Estrutura Completa)
 # ==========================================
 INDICADORES = {
+    
     # ------------------------------------------
     # 💰 ECONOMIA E GOVERNANÇA
     # ------------------------------------------
     "economia": {
         "taxa_desemprego": {
-            "tipo_calculo": "porcentagem",
+            "tipo_calculo": "taxa_100k",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
                 "coluna_valor": "saldomovimentação"
             },
             "denominador": "forca_de_trabalho",
-            "multiplicador": 100
+            "multiplicador": 100000
         },
         "taxa_endividamento": {
             "tipo_calculo": "porcentagem",
@@ -70,20 +72,20 @@ INDICADORES = {
         },
         "despesas_capital": {
             "tipo_calculo": "porcentagem",
-            "status": "pendente_confirmacao_fonte",
-            "numerador": {"arquivo": "NÃO_BAIXADO", "fonte": "SICONFI (Investimentos)"},
+            "status": "validado_via_api_siconfi", # <-- Mude o status!
+            "numerador": {"arquivo": "API", "fonte": "SICONFI - Investimentos"},
             "denominador": "receita_total_municipio",
             "multiplicador": 100
         },
         "receita_propria": {
             "tipo_calculo": "porcentagem",
-            "status": "pendente_confirmacao_fonte",
-            "numerador": {"arquivo": "NÃO_BAIXADO", "fonte": "SICONFI (Impostos Municipais)"},
+            "status": "validado_via_api_siconfi", # <-- Mude o status!
+            "numerador": {"arquivo": "API", "fonte": "SICONFI - Impostos Municipais"},
             "denominador": "receita_total_municipio",
             "multiplicador": 100
         },
         "orcamento_per_capita": {
-            "tipo_calculo": "direto", 
+            "tipo_calculo": "direto",
             "variavel_direta": {
                 "arquivo": "PIB_Municipios/base_de_dados_2010_2023_xlsx/PIB dos Municípios - base de dados 2010-2023.xlsx",
                 "coluna_codigo": "Código do Município",
@@ -118,15 +120,13 @@ INDICADORES = {
     # ------------------------------------------
     "sociedade_seguranca": {
         "moradias_inadequadas": {
-            "tipo_calculo": "porcentagem",
-            "numerador": {
+            "tipo_calculo": "direto", 
+            "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", 
+                "coluna_codigo": "Cod Munic",
                 "coluna_valor": "Mhab03",
                 "pandas_kwargs": {"sheet_name": "Habitacao", "header": 0}
-            },
-            "denominador": "total_domicilios",
-            "multiplicador": 100
+            }
         },
         "sem_teto": {
             "tipo_calculo": "taxa_100k",
@@ -218,14 +218,14 @@ INDICADORES = {
             "multiplicador": 100000
         },
         "empregos_tic": {
-            "tipo_calculo": "porcentagem",
+            "tipo_calculo": "taxa_100k",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
                 "coluna_valor": "saldomovimentação" 
             },
             "denominador": "forca_de_trabalho",
-            "multiplicador": 100
+            "multiplicador": 100000
         },
         "graduados_stem": {
             "tipo_calculo": "taxa_100k",
@@ -237,7 +237,7 @@ INDICADORES = {
     },
 
     # ------------------------------------------
-    # 🌳 SUSTENTABILIDADE E SMART CITY (ISO 37122)
+    # 🌳 SUSTENTABILIDADE E SMART CITY
     # ------------------------------------------
     "sustentabilidade_smart_city": {
         "energia_residuos": {
@@ -251,15 +251,13 @@ INDICADORES = {
             "multiplicador": 100
         },
         "iluminacao_telegestao": {
-            "tipo_calculo": "porcentagem",
-            "numerador": {
+            "tipo_calculo": "direto", 
+            "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", 
+                "coluna_codigo": "Cod Munic",
                 "coluna_valor": "Mtic06",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
-            },
-            "denominador": "total_domicilios",
-            "multiplicador": 100
+            }
         },
         "medidores_inteligentes_energia": {
             "tipo_calculo": "porcentagem",
@@ -281,18 +279,16 @@ INDICADORES = {
             "variavel_direta": {"arquivo": "NÃO_BAIXADO", "fonte": "Ministério do Meio Ambiente"}
         },
         "servicos_urbanos_online": {
-            "tipo_calculo": "porcentagem",
-            "numerador": {
+            "tipo_calculo": "direto",
+            "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", 
+                "coluna_codigo": "Cod Munic",
                 "coluna_valor": "Mtic10",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
-            },
-            "denominador": "populacao_total",
-            "multiplicador": 100
+            }
         },
         "prontuario_eletronico": {
-            "tipo_calculo": "porcentagem",
+            "tipo_calculo": "taxa_100k",
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
@@ -300,7 +296,7 @@ INDICADORES = {
                 "pandas_kwargs": {"encoding": "latin1", "sep": ";"} 
             },
             "denominador": "populacao_total",
-            "multiplicador": 100
+            "multiplicador": 100000
         },
         "consultas_remotas": {
             "tipo_calculo": "taxa_100k",
@@ -362,15 +358,13 @@ INDICADORES = {
             "multiplicador": 100
         },
         "escolas_conectadas_telegestao": {
-            "tipo_calculo": "porcentagem",
-            "numerador": {
+            "tipo_calculo": "direto",
+            "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic", 
+                "coluna_codigo": "Cod Munic",
                 "coluna_valor": "Mtic12a1",
                 "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
-            },
-            "denominador": "populacao_total",
-            "multiplicador": 100
+            }
         },
         "seguros_ameacas": {
             "tipo_calculo": "porcentagem",
@@ -380,14 +374,14 @@ INDICADORES = {
             "multiplicador": 100
         },
         "empregos_informais": {
-            "tipo_calculo": "porcentagem",
+            "tipo_calculo": "taxa_100k",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
                 "coluna_valor": "indtrabintermitente"
             },
             "denominador": "forca_de_trabalho",
-            "multiplicador": 100
+            "multiplicador": 100000
         }
     },
 
@@ -416,7 +410,7 @@ INDICADORES = {
             "multiplicador": 100
         },
         "hospitais_gerador_backup": {
-            "tipo_calculo": "porcentagem",
+            "tipo_calculo": "taxa_100k",
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
@@ -424,7 +418,7 @@ INDICADORES = {
                 "pandas_kwargs": {"encoding": "latin1", "sep": ";"} 
             },
             "denominador": "populacao_total",
-            "multiplicador": 100
+            "multiplicador": 100000
         },
         "seguro_saude_basico": {
             "tipo_calculo": "porcentagem",
@@ -439,14 +433,13 @@ INDICADORES = {
             "variavel_direta": {"arquivo": "NÃO_BAIXADO", "fonte": "DataSUS PNI"}
         },
         "abrigos_emergencia": {
-            "tipo_calculo": "taxa_100k",
-            "status": "pendente_confirmacao_fonte",
-            "numerador": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Evento climático RS - layout não numérico confirmado"
-            },
-            "denominador": "populacao_total",
-            "multiplicador": 100000
+            "tipo_calculo": "direto",
+            "variavel_direta": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "Mers04",
+                "pandas_kwargs": {"sheet_name": "Evento climático RS", "header": 0}
+            }
         },
         "edificios_vulneraveis": {
             "tipo_calculo": "porcentagem",
@@ -475,10 +468,11 @@ INDICADORES = {
         },
         "mapas_ameacas_publicos": {
             "tipo_calculo": "direto",
-            "status": "pendente_confirmacao_fonte",
             "variavel_direta": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Evento climático RS - layout não numérico confirmado"
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "Mers01",
+                "pandas_kwargs": {"sheet_name": "Evento climático RS", "header": 0}
             }
         },
         "mortalidade_desastres": {
@@ -519,13 +513,15 @@ INDICADORES = {
     # ------------------------------------------
     "conectividade": {
         "densidade_banda_larga": {
-            "tipo_calculo": "direto", 
-            "variavel_direta": {
-                "arquivo": "acessos_banda_larga_fixa/Densidade_Banda_Larga_Fixa.csv",
-                "coluna_codigo": "Código IBGE",
-                "coluna_valor": "Densidade",
-                "pandas_kwargs": {}
-            }
+            "tipo_calculo": "taxa_100k", 
+            "numerador": {
+                "arquivo": "acessos_banda_larga_fixa/Acessos_Banda_Larga_Fixa_2021.csv",
+                "coluna_codigo": "Código IBGE Município",
+                "coluna_valor": "Acessos",
+                "pandas_kwargs": {"sep": ";", "encoding": "utf-8"}
+            },
+            "denominador": "populacao_total",
+            "multiplicador": 100000
         }
     }
 }

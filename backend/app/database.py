@@ -11,9 +11,12 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./urbix.db")
 is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
 connect_args = {"check_same_thread": False} if is_sqlite else {}
 
+
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
-    connect_args=connect_args
+    connect_args=connect_args,
+    pool_pre_ping=True,  # 🚀 Testa se a conexão SSL caiu antes de usá-la
+    pool_recycle=300     # 🚀 Recicla conexões ociosas preventivamente a cada 5 minutos
 )
 # Cria a fábrica de sessões do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -355,15 +355,21 @@ def aplicar_topsis(df: pd.DataFrame, pesos: dict, impactos: dict) -> List[dict]:
 
         impacto = impactos.get(col, 1)
 
-        # ⚠️ REGRA DE VARIÂNCIA DESATIVADA:
+        # ⚠️ REGRA DE VARIÂNCIA DESATIVADA (Mantida para o frontend):
         # if df[col].notna().sum() <= 1:
         #    df = df.drop(columns=[col])
         #    continue
 
+        # A REGRA MATEMÁTICA MAIS JUSTA:
+        # Benefício (1) -> Faltante recebe o MÍNIMO da coluna (o pior cenário)
+        # Custo (-1) -> Faltante recebe o MÁXIMO da coluna (o pior cenário)
         if impacto == 1:
-            pior_valor = 0.0
+            pior_valor = df[col].min()
+            # Fallback de segurança caso a coluna inteira seja nula
+            if pd.isna(pior_valor): pior_valor = 0.0 
         else:
             pior_valor = df[col].max()
+            if pd.isna(pior_valor): pior_valor = 0.0
 
         df[col] = df[col].fillna(pior_valor)
 

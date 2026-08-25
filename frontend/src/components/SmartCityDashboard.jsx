@@ -201,8 +201,7 @@ export default function SmartCityDashboard() {
     setResults(null);
     setError(null);
     setSubmitSuccess(false);
-    setSelectedCityIndex(0);
-    setSelectedTabId('iso_37120');
+    setSelectedCityIndex(0);setSelectedTabId('iso_37120');
   }, []);
 
   // ✅ NOVO: Adicionar cidade dinamicamente com TODOS os 47 indicadores

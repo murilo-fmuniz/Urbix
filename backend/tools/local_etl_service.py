@@ -409,21 +409,40 @@ def extrair_dado_base_sidra(id_variavel: str, config: dict, db_session):
         db_session.rollback()
         print(f"❌ ERRO API {id_variavel}: {e}")
 
-def extrair_receita_siconfi(id_variavel: str, db_session):
-    """Faz loops em todos os municípios cadastrados consultando o Tesouro Nacional com micro-sessões."""
-    print(f"🌐 Buscando {id_variavel} via API SICONFI (Tesouro Nacional)...")
+def extrair_receita_siconfi(variaveis: list):
+    """
+    Busca dados no SICONFI de forma atômica. 
+    Usa Context Managers (with SessionLocal() as db) para abrir e fechar 
+    conexões rapidamente, evitando bloqueios SSL no Neon DB.
+    """
+    import requests
+    import time
+    from app.database import SessionLocal
+    from app.models import Municipio, ValorIndicador
 
-    # A db_session original é usada APENAS para buscar a lista de cidades no começo
-    cidades = db_session.query(Municipio.codigo_ibge).order_by(Municipio.codigo_ibge.asc()).all()
+    print(f"\n🌐 Buscando dados contábeis via API SICONFI (Tesouro Nacional)...")
+
+    # 1. Pega os municípios e fecha o banco imediatamente
+    with SessionLocal() as db:
+        cidades = db.query(Municipio.codigo_ibge).order_by(Municipio.codigo_ibge.asc()).all()
+
     if not cidades:
         print("⚠️ SICONFI: nenhuma cidade disponível na base para consulta.")
         return
 
-    registros_lote = []
-    base_url = "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rreo"
-    total_cidades = len(cidades)
-    total_inseridos = 0 
+    mapa_siconfi = {
+        "receita_total_municipio": "ReceitasCorrentes",
+        "receita_propria_numerador": "Impostos",
+        "despesas_capital_numerador": "Investimentos"
+    }
 
+    variaveis_buscar = [v for v in variaveis if v in mapa_siconfi]
+    registros_lote = []
+    total_inseridos = 0
+    total_cidades = len(cidades)
+    base_url = "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rreo"
+
+    # 2. Roda as chamadas HTTP com o banco FECHADO
     for index, (ibge,) in enumerate(cidades, start=1):
         if index % 50 == 0:
             print(f"🌐 Processando cidade {index}/{total_cidades}: {ibge}...")
@@ -432,65 +451,57 @@ def extrair_receita_siconfi(id_variavel: str, db_session):
             "an_exercicio": 2023,
             "nr_periodo": 6,
             "co_tipo_demonstrativo": "RREO",
-            "no_anexo": "RREO-Anexo 03",
+            "no_anexo": "RREO-Anexo 01",
             "id_ente": ibge,
         }
+        
         try:
             res = requests.get(base_url, params=params, timeout=10)
             if res.status_code == 200:
                 payload = res.json()
                 items = payload.get("items", []) if isinstance(payload, dict) else []
+                
                 for item in items:
-                    if item.get("cod_conta") == "RREO3ReceitaCorrenteLiquida":
-                        valor = item.get("valor")
-                        if valor is not None:
-                            registros_lote.append(
-                                ValorIndicador(
-                                    codigo_ibge=ibge,
-                                    id_indicador=id_variavel,
-                                    ano_referencia=2023,
-                                    valor=float(valor),
-                                    fonte="API SICONFI / RREO",
-                                )
-                            )
-                        break
-        except Exception:
-            pass 
+                    cod_conta = item.get("cod_conta", "")
+                    coluna = item.get("coluna", "")
+                    valor = item.get("valor")
 
-        time.sleep(0.15)
+                    # Proteção estrita contra JSON sujo do governo
+                    if valor is not None and isinstance(coluna, str):
+                        if "Até o Bimestre" in coluna or "EMPENHADAS ATÉ O BIMESTRE" in coluna:
+                            for var_urbix in variaveis_buscar:
+                                if cod_conta == mapa_siconfi[var_urbix]:
+                                    registros_lote.append(
+                                        ValorIndicador(
+                                            codigo_ibge=ibge,
+                                            id_indicador=var_urbix,
+                                            ano_referencia=2023,
+                                            valor=float(valor),
+                                            fonte="API SICONFI / RREO-01",
+                                        )
+                                    )
+        except requests.exceptions.RequestException:
+            pass # Pula timeout/queda de internet isolada
 
-        # ---------------------------------------------------------
-        # 🚀 O SEGREDO: Abre uma NOVA sessão "Miojo" só pra salvar e fecha
-        # ---------------------------------------------------------
-        if len(registros_lote) >= 200:
-            temp_db = SessionLocal() # Abre conexão fresca!
-            try:
-                temp_db.bulk_save_objects(registros_lote)
-                temp_db.commit()
-                total_inseridos += len(registros_lote)
-                print(f"💾 Lote salvo com conexão nova! ({total_inseridos} receitas garantidas)")
-            except Exception as e:
-                temp_db.rollback()
-                print(f"❌ Erro ao salvar lote parcial: {e}")
-            finally:
-                temp_db.close() # Mata a conexão para o Neon não reclamar
-                registros_lote = [] 
+        time.sleep(0.15) # Rate limit do governo
 
-    # Salva os últimos registros que sobraram
-    if registros_lote:
-        temp_db = SessionLocal()
-        try:
-            temp_db.bulk_save_objects(registros_lote)
-            temp_db.commit()
+        # 3. Quando o lote enche, abre uma conexão ultra-rápida só para salvar
+        if len(registros_lote) >= 300:
+            with SessionLocal() as db_lote:
+                db_lote.bulk_save_objects(registros_lote)
+                db_lote.commit()
             total_inseridos += len(registros_lote)
-        except Exception as e:
-            temp_db.rollback()
-        finally:
-            temp_db.close()
+            print(f"  💾 Lote SICONFI salvo! ({total_inseridos} registros totais)")
+            registros_lote = []
 
-    print(f"✅ API SICONFI: {total_inseridos} municípios inseridos com cobertura completa da base!")
+    # 4. Salva o restinho
+    if registros_lote:
+        with SessionLocal() as db_lote:
+            db_lote.bulk_save_objects(registros_lote)
+            db_lote.commit()
+        total_inseridos += len(registros_lote)
 
-
+    print(f"✅ API SICONFI: {total_inseridos} dados financeiros inseridos com sucesso!")
 
 def atualizar_snapshot_latest(db_session):
     """Atualiza tabela materializada com o valor mais recente por cidade + indicador."""
@@ -564,34 +575,39 @@ def run():
     print("=" * 60)
 
     # 🧹 FAXINA GERAL: Apaga as tabelas sujas do Neon antes de recriar
-    #  Base.metadata.drop_all(bind=engine)
+    # Base.metadata.drop_all(bind=engine)
     
     Base.metadata.create_all(bind=engine)
     print("ℹ️ Semeando metadados de municípios e indicadores antes da carga de fatos.")
     metadata_status = seed_metadata()
     print(f"✅ Metadados semeados: {metadata_status}")
 
-    db = SessionLocal()
-
+    # ---------------------------------------------------------
+    # BLOCO 1: CADASTRO DOS INDICADORES BASE
+    # ---------------------------------------------------------
     print("ℹ️ Cadastrando indicadores base no banco de dados...")
-    try:
-        db.execute(text("""
-            INSERT INTO indicadores (id, nome, norma_iso, peso, impacto) VALUES 
-            ('populacao_total', 'População Total', 'Base', 1.0, 1),
-            ('pib_absoluto', 'PIB Absoluto', 'Base', 1.0, 1),
-            ('forca_de_trabalho', 'Força de Trabalho', 'Base', 1.0, 1),
-            ('total_domicilios', 'Total de Domicílios', 'Base', 1.0, 1),
-            ('receita_total_municipio', 'Receita Total do Município', 'Base', 1.0, 1)
-            ON CONFLICT (id) DO NOTHING;
-        """))
-        db.commit()
-        print("✅ Indicadores base cadastrados com sucesso!")
-    except Exception as e:
-        db.rollback()
-        print(f"⚠️ Aviso ao criar indicadores base: {e}")
+    with SessionLocal() as db_base:
+        try:
+            db_base.execute(text("""
+                INSERT INTO indicadores (id, nome, norma_iso, peso, impacto) VALUES 
+                ('populacao_total', 'População Total', 'Base', 1.0, 1),
+                ('pib_absoluto', 'PIB Absoluto', 'Base', 1.0, 1),
+                ('forca_de_trabalho', 'Força de Trabalho', 'Base', 1.0, 1),
+                ('total_domicilios', 'Total de Domicílios', 'Base', 1.0, 1),
+                ('receita_total_municipio', 'Receita Total do Município', 'Base', 1.0, 1),
+                ('receita_propria_numerador', 'Impostos Arrecadados (Numerador)', 'Base', 1.0, 1),
+                ('despesas_capital_numerador', 'Investimentos Empenhados (Numerador)', 'Base', 1.0, 1)
+                ON CONFLICT (id) DO NOTHING;
+            """))
+            db_base.commit()
+            print("✅ Indicadores base cadastrados com sucesso!")
+        except Exception as e:
+            db_base.rollback()
+            print(f"⚠️ Aviso ao criar indicadores base: {e}")
 
     print("ℹ️ ETL em modo incremental: mantendo dados históricos existentes e inserindo/atualizando novas cargas.")
     print("\n--- EXTRAINDO DADOS BASE VIA APIS PÚBLICAS ---")
+    
     apis_ibge = {
         "populacao_total": {"url": "https://apisidra.ibge.gov.br/values/t/6579/p/2025/n6/all/v/9324?formato=json", "ano": 2025, "fonte": "SIDRA (6579)"},
         "pib_absoluto": {"url": "https://apisidra.ibge.gov.br/values/t/5938/p/2023/n6/all/v/37?formato=json", "ano": 2023, "fonte": "SIDRA (5938)"},
@@ -599,34 +615,48 @@ def run():
         "total_domicilios": {"url": "https://apisidra.ibge.gov.br/values/t/9922/p/2022/n6/all/v/381/c1/6795?formato=json", "ano": 2022, "fonte": "SIDRA Censo (9922)"},
     }
 
-    # Descomentado para baixar Força de Trabalho e Censo rápido:
-    for id_var, config in apis_ibge.items():
-        extrair_dado_base_sidra(id_var, config, db)
+    # ---------------------------------------------------------
+    # BLOCO 2: APIS DO IBGE
+    # ---------------------------------------------------------
+    with SessionLocal() as db_ibge:
+        for id_var, config in apis_ibge.items():
+            extrair_dado_base_sidra(id_var, config, db_ibge)
+        db_ibge.commit()
 
-    # Mantenha o SICONFI comentado para ir rápido!
-    # extrair_receita_siconfi("receita_total_municipio", db)
-
-    # -------------------------------------------------------------
-    # 🔄 O SEGREDO: Refrescar a conexão principal depois de muita demora!
-    # -------------------------------------------------------------
-    print("\n🔄 Atualizando conexão principal com o banco (Anti-Timeout)...")
-    db.close()              # Fecha a conexão velha que ficou ociosa
-    db = SessionLocal()     # Abre uma conexão novinha em folha!
+    # ---------------------------------------------------------
+    # BLOCO 3: SICONFI (A função gerencia suas próprias sessões)
+    # ---------------------------------------------------------
+    extrair_receita_siconfi([
+        "receita_total_municipio", 
+        "receita_propria_numerador", 
+        "despesas_capital_numerador"
+    ])
 
     print("\n--- EXTRAINDO PLANILHAS LOCAIS COMPLEXAS (STREAMING POR CHUNKS) ---")
-    for dominio, indicadores in INDICADORES.items():
-        for id_ind, regras in indicadores.items():
-            if regras["tipo_calculo"] == "direto":
-                extrair_dados_locais(id_ind, regras["variavel_direta"], db)
-            else:
-                extrair_dados_locais(f"{id_ind}_numerador", regras["numerador"], db)
+    
+    # ---------------------------------------------------------
+    # BLOCO 4: PLANILHAS LOCAIS
+    # ---------------------------------------------------------
+    with SessionLocal() as db_local:
+        for dominio, indicadores in INDICADORES.items():
+            for id_ind, regras in indicadores.items():
+                if regras["tipo_calculo"] == "direto":
+                    extrair_dados_locais(id_ind, regras["variavel_direta"], db_local)
+                else:
+                    extrair_dados_locais(f"{id_ind}_numerador", regras["numerador"], db_local)
+        db_local.commit()
 
-    deduplicar_historico_mesmo_ano(db)
-    atualizar_snapshot_latest(db)
+    print("\n--- DEDUPLICANDO HISTÓRICO E ATUALIZANDO SNAPSHOT ---")
+    
+    # ---------------------------------------------------------
+    # BLOCO 5: LIMPEZA E SNAPSHOT TOPSIS
+    # ---------------------------------------------------------
+    with SessionLocal() as db_final:
+        deduplicar_historico_mesmo_ano(db_final)
+        atualizar_snapshot_latest(db_final)
+        db_final.commit()
 
-    db.close()
     print("\n🎉 ETL FINALIZADO COM SUCESSO!")
-
 
 if __name__ == "__main__":
     run()

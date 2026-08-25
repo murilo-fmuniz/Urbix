@@ -2,8 +2,10 @@
 
 ```text
 📂 backend/
-    📄 .gitignore
+    📄 .env
+    📄 README.md
     📄 alembic.ini
+    📄 banco.zip
     📄 check_domicilios.py
     📄 inspect_domicilios.py
     📄 main.py
@@ -50,26 +52,10 @@
                 📄 Acessos_Banda_Larga_Fixa_2019-2020.csv
                 📄 Acessos_Banda_Larga_Fixa_2019_2020_Colunas.csv
                 📄 Acessos_Banda_Larga_Fixa_2021.csv
-                📄 Acessos_Banda_Larga_Fixa_2021_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2022.csv
-                📄 Acessos_Banda_Larga_Fixa_2022_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2023.csv
-                📄 Acessos_Banda_Larga_Fixa_2023_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2024.csv
-                📄 Acessos_Banda_Larga_Fixa_2024_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2025.csv
-                📄 Acessos_Banda_Larga_Fixa_2025_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2026.csv
-                📄 Acessos_Banda_Larga_Fixa_2026_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_Total.csv
-                📄 Densidade_Banda_Larga_Fixa.csv
-                📄 Densidades.pdf
             📂 ATU_2025_MUNICIPIOS/
                 📄 ATU_MUNICIPIOS_2025.ods
                 📄 ATU_MUNICIPIOS_2025.xlsx
                 📄 MD5_ATU_MUNICIPIOS_2025.txt
-            📂 cad_unico/
-                📄 cad_unico.txt
             📂 CAGED_RAIS/
                 📂 Caged (2026)/
                     📄 CAGEDEXC202605.7z
@@ -84,31 +70,12 @@
             📂 CNES/
                 📂 cnes_estabelecimentos_csv/
                     📄 cnes_estabelecimentos.csv
-            📂 codigos ibge/
-                📄 Distritos_novos_e_extintos.ods
-                📄 Distritos_novos_e_extintos.xls
-                📄 RELATORIO_DTB_BRASIL_2024_DISTRITOS.ods
-                📄 RELATORIO_DTB_BRASIL_2024_DISTRITOS.xls
-                📄 RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.ods
-                📄 RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xls
-                📄 RELATORIO_DTB_BRASIL_2024_SUBDISTRITOS.ods
-                📄 RELATORIO_DTB_BRASIL_2024_SUBDISTRITOS.xls
-            📂 divulgacao_anos_finais_municipios_2023/
-                📄 divulgacao_anos_finais_municipios_2023.ods
-                📄 divulgacao_anos_finais_municipios_2023.xlsx
-                📄 md5_divulgacao_anos_finais_municipios_2023.txt
-            📂 divulgacao_anos_iniciais_municipios_2023/
-                📄 divulgacao_anos_iniciais_municipios_2023.ods
-                📄 divulgacao_anos_iniciais_municipios_2023.xlsx
-                📄 md5_divulgacao_anos_iniciais_municipios_2023.txt
             📂 Estimativas de Pupulacao/
                 📄 POP2025_20260113.xls
             📂 FBSP/
                 📄 anuario-2025.xlsx
                 📂 br_fbsp_absp_municipio.csv/
                     📄 br_fbsp_absp_municipio.csv
-            📂 frota_veiculos/
-                📄 Frota_por_municipio_e_tipo_Junho_2026.xlsx
             📂 Indicadores de desenvolvimento sustentavel/
                 📂 aguadoce/
                     📄 aguadoce.pdf
@@ -246,13 +213,13 @@
                 📄 TDI_MUNICIPIOS_2025.xlsx
     📂 tests/
         📄 __init__.py
-        📄 conftest.py
-        📄 test_engine.py
     📂 tools/
         📄 analyze_missing_deps.py
         📄 backfill_base_indicators.py
+        📄 check_city_data.py
         📄 coverage_report_topsis_ids.py
         📄 coverage_simple.py
+        📄 debug_data.py
         📄 extract_denominators_explore.py
         📄 extract_denominators_munic_cnes.py
         📄 extract_load_denominators.py
@@ -264,4 +231,6 @@
         📄 optimize_runtime_db.py
         📄 reload_domicilios_simple.py
         📄 seed_metadata.py
+        📄 sync_indicadores.py
+        📄 teste_siconfi.py
 ```
