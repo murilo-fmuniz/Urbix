@@ -1,65 +1,42 @@
-# 🗺️ Estrutura de Arquivos do Frontend
+# Estrutura atual do frontend
 
 ```text
-📂 frontend/
-    📄 .env.local
-    📄 .env.production
-    📄 index.html
-    📄 package-lock.json
-    📄 package.json
-    📄 postcss.config.js
-    📄 tailwind.config.js
-    📂 src/
-        📄 App.jsx
-        📄 main.jsx
-        📂 components/
-            📄 CityInputForm.css
-            📄 CityInputForm.jsx
-            📄 Header.css
-            📄 Header.jsx
-            📄 HistoricoIndicadores.css
-            📄 HistoricoIndicadores.jsx
-            📄 HistoricoRankings.css
-            📄 HistoricoRankings.jsx
-            📄 IndicatorCard.css
-            📄 IndicatorCard.jsx
-            📄 IndicatorsChart.css
-            📄 IndicatorsChart.jsx
-            📄 IndicatorsComparisonChart.css
-            📄 IndicatorsComparisonChart.jsx
-            📄 ManualDataForm.css
-            📄 ManualDataForm.jsx
-            📄 ManualDataForm.test.js
-            📄 Navbar.jsx
-            📄 RankingTable.css
-            📄 RankingTable.jsx
-            📄 Sidebar.examples.jsx
-            📄 Sidebar.jsx
-            📄 SmartCityDashboard.css
-            📄 SmartCityDashboard.examples.jsx
-            📄 SmartCityDashboard.jsx
-            📄 SmartCityDashboard_BACKUP.jsx
-        📂 constants/
-            📄 indicadores.js
-        📂 data/
-            📄 ibgeCatalog.js
-            📄 ibge_catalog.json
-        📂 pages/
-            📄 AboutPage.css
-            📄 AboutPage.jsx
-            📄 AdminCidadesPage.css
-            📄 AdminCidadesPage.jsx
-            📄 CityIndicatorsHistoryPage.jsx
-            📄 HistoricalSeriesPage.jsx
-            📄 HomePage.css
-            📄 HomePage.jsx
-            📄 RankingPage.css
-            📄 RankingPage.jsx
-        📂 services/
-            📄 api-manual-data-examples.js
-            📄 api.js
-        📂 styles/
-            📄 global.css
-        📂 utils/
-            📄 validation.js
+frontend/
+├── src/
+│   ├── App.jsx
+│   ├── main.jsx
+│   ├── pages/
+│   │   ├── RankingPage.jsx
+│   │   ├── HomePage.jsx
+│   │   ├── HistoricalSeriesPage.jsx
+│   │   └── CityIndicatorsHistoryPage.jsx
+│   ├── components/
+│   │   ├── CityInputForm.jsx
+│   │   ├── RankingTable.jsx
+│   │   ├── IndicatorsComparisonChart.jsx
+│   │   └── SmartCityDashboard.jsx
+│   ├── services/
+│   │   └── api.js
+│   ├── constants/
+│   └── data/
+├── package.json
+├── vite.config.js
+├── .env.local
+├── .env.production
+└── README.md
 ```
+
+## Integração principal
+
+`src/services/api.js` envia:
+
+```json
+{
+  "cidades_ibge": ["4101408", "4113700", "4115200"],
+  "simulacoes": []
+}
+```
+
+para `POST /topsis/ranking-hibrido`.
+
+A resposta contém a pontuação TOPSIS e os valores calculados dos indicadores disponíveis. Atualmente o backend retorna 19 indicadores calculáveis.

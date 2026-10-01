@@ -1,236 +1,45 @@
-# 🗺️ Estrutura de Arquivos do Backend
+# Estrutura atual do backend
 
 ```text
-📂 backend/
-    📄 .env
-    📄 README.md
-    📄 alembic.ini
-    📄 banco.zip
-    📄 check_domicilios.py
-    📄 inspect_domicilios.py
-    📄 main.py
-    📄 relatório_cobertura_final.py
-    📄 requirements.txt
-    📄 run_server.bat
-    📂 app/
-        📄 __init__.py
-        📄 database.py
-        📄 etl_config.py
-        📄 main.py
-        📄 models.py
-        📄 schemas.py
-        📄 utils.py
-        📂 data/
-            📄 ibge_catalog.json
-        📂 routers/
-            📄 indicadores.py
-            📄 local_data.py
-            📄 manual_data.py
-            📄 topsis.py
-        📂 services/
-            📄 __init__.py
-            📄 demo_city_seed.py
-            📄 ibge_catalog.py
-            📄 indicators.py
-            📄 local_data_service.py
-            📄 topsis_core.py
-    📂 data/
-        📄 seed_apucarana.json
-        📄 seed_indicadores_iso37122.json
-        📂 planilhas/
-            📂 acessos_banda_larga_fixa/
-                📄 Acessos_Banda_Larga_Fixa_2007-2010.csv
-                📄 Acessos_Banda_Larga_Fixa_2007-2010_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2011-2012.csv
-                📄 Acessos_Banda_Larga_Fixa_2011-2012_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2013-2014.csv
-                📄 Acessos_Banda_Larga_Fixa_2013-2014_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2015-2016.csv
-                📄 Acessos_Banda_Larga_Fixa_2015-2016_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2017-2018.csv
-                📄 Acessos_Banda_Larga_Fixa_2017-2018_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2019-2020.csv
-                📄 Acessos_Banda_Larga_Fixa_2019_2020_Colunas.csv
-                📄 Acessos_Banda_Larga_Fixa_2021.csv
-            📂 ATU_2025_MUNICIPIOS/
-                📄 ATU_MUNICIPIOS_2025.ods
-                📄 ATU_MUNICIPIOS_2025.xlsx
-                📄 MD5_ATU_MUNICIPIOS_2025.txt
-            📂 CAGED_RAIS/
-                📂 Caged (2026)/
-                    📄 CAGEDEXC202605.7z
-                    📄 CAGEDFOR202605.7z
-                    📄 CAGEDMOV202605.7z
-                    📂 CAGEDEXC202605/
-                        📄 CAGEDEXC202605.txt
-                    📂 CAGEDFOR202605/
-                        📄 CAGEDFOR202605.txt
-                    📂 CAGEDMOV202605/
-                        📄 CAGEDMOV202605.txt
-            📂 CNES/
-                📂 cnes_estabelecimentos_csv/
-                    📄 cnes_estabelecimentos.csv
-            📂 Estimativas de Pupulacao/
-                📄 POP2025_20260113.xls
-            📂 FBSP/
-                📄 anuario-2025.xlsx
-                📂 br_fbsp_absp_municipio.csv/
-                    📄 br_fbsp_absp_municipio.csv
-            📂 Indicadores de desenvolvimento sustentavel/
-                📂 aguadoce/
-                    📄 aguadoce.pdf
-                📂 atmosfera/
-                    📄 atmosfera.pdf
-                📂 biodiversidade/
-                    📄 biodiversidade.pdf
-                📂 capacidadeinst/
-                    📄 capacidadeinst.pdf
-                📂 educacao/
-                    📄 educacao.pdf
-                📂 glossario/
-                    📄 glossario.pdf
-                📂 habitacao/
-                    📄 habitacao.pdf
-                📂 ids/
-                    📂 ids/
-                        📄 ids.pdf
-                📂 introducao/
-                    📄 introducao.pdf
-                📂 oceanos/
-                    📄 oceanos.pdf
-                📂 populacao/
-                    📄 populacao.pdf
-                📂 prodconsumo/
-                    📄 prodconsumo.pdf
-                📂 quadroecon/
-                    📄 quadroecon.pdf
-                📂 quadroinst/
-                    📄 quadroinst.pdf
-                📂 saneamento/
-                    📄 saneamento.pdf
-                📂 saude/
-                    📄 saude.pdf
-                📂 seguranca/
-                    📄 seguranca.pdf
-                📂 terra/
-                    📄 terra.pdf
-                📂 trabrend/
-                    📄 trabrend.pdf
-            📂 Meio ambiente/
-                📂 Abrangencia_xlsx/
-                    📄 Tab1.xlsx
-                    📄 Tab10.xlsx
-                    📄 Tab11.xlsx
-                    📄 Tab12.xlsx
-                    📄 Tab13.xlsx
-                    📄 Tab14.xlsx
-                    📄 Tab15.xlsx
-                    📄 Tab16.xlsx
-                    📄 Tab17.xlsx
-                    📄 Tab18.xlsx
-                    📄 Tab19.xlsx
-                    📄 Tab2.xlsx
-                    📄 Tab20.xlsx
-                    📄 Tab21.xlsx
-                    📄 Tab3.xlsx
-                    📄 Tab4.xlsx
-                    📄 Tab5.xlsx
-                    📄 Tab6.xlsx
-                    📄 Tab7.xlsx
-                    📄 Tab8.xlsx
-                    📄 Tab9.xlsx
-                📂 RI_Tabelas_22_a_27_xlsx/
-                    📂 RI_Tabela_22_xlxs/
-                        📄 Tabela22.1.xlsx
-                        📄 Tabela22.2.xlsx
-                        📄 Tabela22.3.xlsx
-                        📄 Tabela22.4.xlsx
-                        📄 Tabela22.5.xlsx
-                        📄 Tabela22.6.xlsx
-                    📂 RI_Tabela_23_xlxs/
-                        📄 Tabela23.1.xlsx
-                        📄 Tabela23.2.xlsx
-                        📄 Tabela23.3.xlsx
-                        📄 Tabela23.4.xlsx
-                        📄 Tabela23.5.xlsx
-                        📄 Tabela23.6.xlsx
-                    📂 RI_Tabela_24_xlxs/
-                        📄 Tabela24.1.xlsx
-                        📄 Tabela24.2.xlsx
-                        📄 Tabela24.3.xlsx
-                        📄 Tabela24.4.xlsx
-                        📄 Tabela24.5.xlsx
-                        📄 Tabela24.6.xlsx
-                    📂 RI_Tabela_25_xlxs/
-                        📄 Tabela25.1.xlsx
-                        📄 Tabela25.2.xlsx
-                        📄 Tabela25.3.xlsx
-                        📄 Tabela25.4.xlsx
-                        📄 Tabela25.5.xlsx
-                        📄 Tabela25.6.xlsx
-                    📂 RI_Tabela_26_xlxs/
-                        📄 Tabela26.1.xlsx
-                        📄 Tabela26.2.xlsx
-                        📄 Tabela26.3.xlsx
-                        📄 Tabela26.4.xlsx
-                        📄 Tabela26.5.xlsx
-                        📄 Tabela26.6.xlsx
-                    📂 RI_Tabela_27_xlxs/
-                        📄 Tabela27.1.xlsx
-                        📄 Tabela27.2.xlsx
-                        📄 Tabela27.3.xlsx
-                        📄 Tabela27.4.xlsx
-                        📄 Tabela27.5.xlsx
-                        📄 Tabela27.6.xlsx
-            📂 MUNIC_2024/
-                📄 02_Informatica_comunicacao.xlsx
-                📄 04_Habitacao.xlsx
-                📄 09_Eventos_climaticos.xlsx
-                📄 Base_MUNIC_2024_20251107.xlsx
-            📂 PIB_Municipios/
-                📄 tabelas_completas_2023.xlsx
-                📄 tabelas_completas_2023_indice.txt
-                📂 base_de_dados_2010_2023_xlsx/
-                    📄 PIB dos Municípios - base de dados 2010-2023.xlsx
-            📂 SINISA_RESIDUOS_Planilhas_2023/
-                📂 SINISA_RESIDUOS_Planilhas_2023/
-                    📄 SINISA_RESIDUOS_Indicadores_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Cobertura_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Despesas_Investimentos_e_Pessoal_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Infraestrutura_Destinacao_Final_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Infraestrutura_Unidades_de_Processamento_e_Tratamento_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Infraestrutura_Unidades_de_Transbordo_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Limpeza_Urbana_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Manejo_2023.xlsx
-                    📄 SINISA_RESIDUOS_Informacoes_Formulario_Receitas_e_Cobrancas_2023.xlsx
-            📂 SNIS/
-                📄 br_mdr_snis_municipio_agua_esgoto.csv.gz
-                📂 br_mdr_snis_municipio_agua_esgoto.csv/
-                    📄 br_mdr_snis_municipio_agua_esgoto.csv
-            📂 TDI_2025_MUNICIPIOS/
-                📄 MD5_TDI_MUNICIPIOS_2025.txt
-                📄 TDI_MUNICIPIOS_2025.ods
-                📄 TDI_MUNICIPIOS_2025.xlsx
-    📂 tests/
-        📄 __init__.py
-    📂 tools/
-        📄 analyze_missing_deps.py
-        📄 backfill_base_indicators.py
-        📄 check_city_data.py
-        📄 coverage_report_topsis_ids.py
-        📄 coverage_simple.py
-        📄 debug_data.py
-        📄 extract_denominators_explore.py
-        📄 extract_denominators_munic_cnes.py
-        📄 extract_load_denominators.py
-        📄 extract_load_denominators_fast.py
-        📄 fix_total_domicilios.py
-        📄 inventory_real_data.py
-        📄 inventory_real_data_fast.py
-        📄 local_etl_service.py
-        📄 optimize_runtime_db.py
-        📄 reload_domicilios_simple.py
-        📄 seed_metadata.py
-        📄 sync_indicadores.py
-        📄 teste_siconfi.py
+backend/
+├── app/
+│   ├── main.py                 # FastAPI
+│   ├── database.py             # SQLAlchemy/PostgreSQL
+│   ├── models.py               # municípios, indicadores e valores
+│   ├── schemas.py              # contratos da API
+│   ├── etl_config.py           # fontes e regras do ETL
+│   ├── routers/
+│   │   └── topsis.py           # ranking e histórico
+│   └── services/
+│       └── topsis_core.py      # matriz e algoritmo TOPSIS
+├── tools/
+│   ├── local_etl_service.py    # ETL nacional
+│   ├── audit_etl_runtime.py    # relatório da IC
+│   ├── run_etl_apucarana.py    # teste limitado
+│   ├── backfill_base_indicators.py
+│   ├── coverage_simple.py
+│   ├── prepare_indicator_rebuild.py
+│   └── validate_rebuild.py
+├── data/
+│   ├── planilhas/              # datalake local, fora do Git
+│   └── seed_*.json             # dados auxiliares
+├── tests/
+├── requirements.txt
+├── alembic.ini
+└── README.md
 ```
+
+## Banco
+
+O ambiente publicado usa PostgreSQL via `DATABASE_URL`. O histórico fica em `valores_indicadores` e o snapshot mais recente em `valores_indicadores_latest`.
+
+## ETL
+
+O comando padrão processa todos os municípios:
+
+```powershell
+cd backend\tools
+..\venv\Scripts\python.exe local_etl_service.py
+```
+
+O teste limitado de Apucarana não altera o escopo padrão do ETL.

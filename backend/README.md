@@ -1,33 +1,86 @@
-# ⚙️ Urbix - Motor Backend (FastAPI & ETL)
+# Urbix Backend
 
-Este módulo é responsável por toda a inteligência de dados, processamento matemático e APIs do projeto Urbix. Desenvolvido em Python moderno, ele garante que os cálculos multicritério sejam rápidos e baseados em dados reais extraídos de um Data Lake local governamental.
+Backend FastAPI, ETL nacional e motor TOPSIS do Urbix.
 
-## 🚀 Tecnologias Principais
-*   **Framework API:** FastAPI (com Pydantic para validação estrita).
-*   **Engenharia de Dados (ETL):** Pandas, xlrd.
-*   **Banco de Dados:** SQLite (via SQLAlchemy e Alembic para migrações).
-*   **Motor Matemático:** Implementação customizada do algoritmo TOPSIS.
+## Componentes
 
-## 📂 Estrutura de Destaque
-*   `app/services/topsis_core.py`: O coração do sistema, responsável por gerar a matriz normalizada e calcular o ranking Híbrido sem persistir simulações temporárias no banco.
-*   `app/etl_config.py`: Dicionário de dados que roteia e mapeia como cada indicador (ex: homicídios, PIB, saneamento) deve ser lido dos arquivos brutos do Data Lake (`.csv`, `.xls`, `.ods`).
-*   `tools/`: Scripts de varredura, inspeção semântica e carregamento do banco de dados (ETL).
+- `app/main.py`: aplicação FastAPI.
+- `app/etl_config.py`: fontes, indicadores, status e regras de cálculo.
+- `app/services/topsis_core.py`: matriz e algoritmo TOPSIS.
+- `tools/local_etl_service.py`: ETL nacional híbrido.
+- `tools/audit_etl_runtime.py`: relatório de cobertura para a IC.
+- `tools/run_etl_apucarana.py`: teste isolado de Apucarana.
+- `data/planilhas/`: datalake local, não deve ser versionado.
 
-## 💻 Como rodar localmente
+## Banco e ambiente
 
-1. Crie e ative o ambiente virtual:
-    python -m venv venv
-    
-    # No Windows:
-    .\venv\Scripts\activate
-    
-    # No Linux/Mac:
-    source venv/bin/activate
+O ambiente de produção usa PostgreSQL configurado por `DATABASE_URL` no `.env`.
+Nunca versione `.env`, credenciais, dumps ou dados brutos.
 
-2. Instale as dependências:
-    pip install -r requirements.txt
+## Instalação
 
-3. Inicie o servidor FastAPI:
-    uvicorn app.main:app --reload
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-A API estará disponível em `http://localhost:8000`. Acesse `/docs` para visualizar a documentação interativa (Swagger).
+## API
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+- API: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- Produção: `https://urbix-api.onrender.com/`
+
+## ETL nacional
+
+O ETL padrão processa todos os municípios cadastrados:
+
+```powershell
+cd backend\tools
+..\venv\Scripts\python.exe local_etl_service.py
+```
+
+A execução consulta:
+
+- SIDRA/IBGE: população, PIB, força de trabalho e domicílios;
+- SICONFI/Tesouro: receita, receita própria e despesas de capital;
+- datalake local: MUNIC, SNIS, CAGED, CNES, FBSP e banda larga.
+
+O ETL é idempotente por indicador e ano: substitui a carga anterior da mesma versão antes de gravar a nova.
+
+## Auditoria
+
+Depois do ETL:
+
+```powershell
+..\venv\Scripts\python.exe audit_etl_runtime.py
+```
+
+Relatório gerado em:
+
+`docs/RELATORIO_AUDITORIA_ETL_IC.md`
+
+O relatório mostra cobertura municipal por eixo, fonte, ano, registros no histórico, registros no snapshot e indicadores pendentes.
+
+## Teste limitado
+
+Para testar somente Apucarana:
+
+```powershell
+..\venv\Scripts\python.exe run_etl_apucarana.py
+```
+
+Esse script não substitui a execução nacional.
+
+## Cuidados metodológicos
+
+- Não transformar ausência em zero.
+- Não usar CNES como proxy de prontuário eletrônico, consultas remotas ou gerador hospitalar sem fonte semântica adequada.
+- Não chamar saldo CAGED de taxa de desemprego.
+- Registrar sempre fonte, ano e cobertura.
+- Revisar o relatório de auditoria antes de publicar resultados.

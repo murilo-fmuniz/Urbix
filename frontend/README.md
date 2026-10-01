@@ -1,28 +1,84 @@
-# 💻 Urbix - Frontend (React & Vite)
+# Urbix Frontend
 
-Aplicação web interativa focada em Visualização de Dados (Data Viz) para a apresentação dos resultados da avaliação multicritério TOPSIS.
+Aplicação React/Vite para seleção de municípios, simulações manuais e visualização do ranking TOPSIS.
 
-## 🚀 Tecnologias Principais
-*   **Core:** React (com Vite para build ultrarrápido).
-*   **Estilização:** Tailwind CSS e CSS Modules.
-*   **Gráficos e Visualização:** Chart.js (`react-chartjs-2`), com foco em Radar Charts para comparação de eixos temáticos (estilo "Stats de RPG").
-*   **Comunicação:** Axios (com tratamento de exceções e interceptors).
+## Stack
 
-## 🧩 Principais Componentes
-*   **SmartCityDashboard & RankingPage:** Telas responsáveis por capturar as cidades escolhidas, montar o payload estrito (Pydantic-compliant) e renderizar a tabela de classificação final e os gráficos de desempenho (Radar) com escala de 0 a 100.
-*   **ManualDataForm:** Interface administrativa dinâmica gerada a partir das normas ISO (37120, 37122 e 37123) que permite às prefeituras imputarem 47 indicadores manualmente para alimentar a base oficial.
+- React 18;
+- Vite;
+- Axios;
+- Chart.js e `react-chartjs-2`;
+- React Router;
+- Tailwind/CSS.
 
-## 💻 Como rodar localmente
+## Executar localmente
 
-1. Certifique-se de ter o Node.js instalado.
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-2. Instale as dependências:
-    npm install
+Crie `frontend/.env.local`:
 
-3. Configure a variável de ambiente criando um arquivo `.env.local` na raiz da pasta `frontend`:
-    VITE_API_URL=http://localhost:8000
+```text
+VITE_API_URL=http://localhost:8000
+```
 
-4. Inicie o servidor de desenvolvimento:
-    npm run dev
+Build de produção:
 
-Acesse a interface no navegador através da porta indicada pelo Vite (geralmente `http://localhost:5173`).
+```powershell
+npm run build
+```
+
+## API consumida
+
+O frontend envia para:
+
+`POST /topsis/ranking-hibrido`
+
+Payload:
+
+```json
+{
+  "cidades_ibge": ["4101408", "4113700", "4115200"],
+  "simulacoes": [
+    {
+      "codigo_ibge": "4101408",
+      "valores_brutos": {}
+    }
+  ]
+}
+```
+
+A resposta é um array ordenado com:
+
+- `codigo_ibge`;
+- `nome_cidade`;
+- `pontuacao_topsis`;
+- `distancia_positiva`;
+- `distancia_negativa`;
+- `valores_calculados`.
+
+## Componentes principais
+
+- `src/pages/RankingPage.jsx`: fluxo de ranking e estado da resposta.
+- `src/components/CityInputForm.jsx`: seleção de municípios e valores manuais.
+- `src/components/RankingTable.jsx`: ranking final.
+- `src/components/IndicatorsComparisonChart.jsx`: comparação por eixos.
+- `src/services/api.js`: cliente Axios e tratamento de erros.
+
+## Deploy atual
+
+- Frontend: `https://urbix-two.vercel.app/`
+- Backend: `https://urbix-api.onrender.com/`
+
+A variável de produção deve ser:
+
+```text
+VITE_API_URL=https://urbix-api.onrender.com
+```
+
+## Observações
+
+O backend atualmente retorna 19 indicadores calculáveis. A tela mostra somente os indicadores presentes em `valores_calculados`; indicadores pendentes ou sem cobertura não devem ser preenchidos artificialmente.

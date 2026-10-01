@@ -1,114 +1,137 @@
-# 🏙️ Urbix: Plataforma Híbrida de Ranqueamento de Cidades Inteligentes
+# Urbix — Ranking Municipal com TOPSIS
 
-**Urbix** é uma plataforma analítica desenvolvida como projeto de Iniciação Científica (CNPq) no curso de Engenharia de Computação da Universidade Tecnológica Federal do Paraná (UTFPR). 
+Projeto de Iniciação Científica da UTFPR para ingestão de dados públicos municipais e comparação multicritério com TOPSIS.
 
-O sistema foi desenhado para consolidar dados governamentais dispersos em um *Data Lake* unificado e aplicar o método multicritério **TOPSIS** (*Technique for Order of Preference by Similarity to Ideal Solution*) para avaliar e ranquear o nível de maturidade de municípios brasileiros. A matriz de avaliação é estritamente fundamentada nas normas internacionais **ISO 37120**, **ISO 37122** e **ISO 37123 (Marco de Sendai)**.
+## Resumo do projeto
 
----
+O Urbix investiga como integrar fontes públicas brasileiras heterogêneas em uma matriz comparável de maturidade municipal. O fluxo combina engenharia de dados, padronização por código IBGE, normalização de indicadores e o método TOPSIS (*Technique for Order Preference by Similarity to Ideal Solution*).
 
-## 🎯 Propósito e Justificativa
+O objetivo não é apenas produzir uma pontuação: é manter a rastreabilidade de cada valor utilizado, incluindo fonte, ano, cobertura municipal e limitações semânticas.
 
-Atualmente, gestores públicos e pesquisadores enfrentam grande dificuldade para comparar a eficiência das cidades devido à fragmentação de dados em diferentes esferas governamentais (IBGE, DataSUS, SICONFI, INEP). 
+## Metodologia
 
-O Urbix resolve esse problema atuando em duas frentes:
-1. **Engenharia de Dados (ETL):** Extrai, limpa e padroniza dados brutos de mais de 100 planilhas e arquivos locais governamentais, construindo denominadores padronizados (ex: per capita, por 100 mil habitantes, porcentagem).
-2. **Motor Matemático (TOPSIS):** Transforma esses dados brutos em uma Matriz de Decisão normalizada, considerando pesos e direções de impacto (benefícios vs. custos), gerando um "Índice Smart" de 0 a 1 que permite a comparação justa entre cidades de portes diferentes.
+1. O datalake local é inventariado por `scripts/map_data_lake.py`.
+2. O `backend/app/etl_config.py` define fonte, coluna, filtros, agregação e status de cada indicador.
+3. O ETL consulta APIs oficiais e processa planilhas/CSV municipais.
+4. Os valores são gravados no histórico `valores_indicadores`.
+5. O snapshot `valores_indicadores_latest` mantém o dado mais recente por município e indicador.
+6. O motor calcula a matriz TOPSIS somente com indicadores aprovados e disponíveis.
+7. A auditoria mede cobertura por eixo e impede que ausência de dado seja confundida com zero.
 
----
+## Estado atual
 
-## 🏗️ Estrutura do Projeto (Monorepo)
+- Backend FastAPI integrado ao PostgreSQL.
+- ETL nacional para municípios brasileiros.
+- Frontend React/Vite publicado na Vercel.
+- Backend publicado no Render.
+- Snapshot de valores mais recentes para acelerar o ranking.
+- 19 indicadores atualmente calculáveis no TOPSIS.
+- Auditoria de cobertura por eixo em `docs/RELATORIO_AUDITORIA_ETL_IC.md`.
 
-O projeto adota uma arquitetura de Monorepo, separando a extração de dados da visualização:
+### Resultado auditado em 01/10/2026
 
-### ⚙️ Backend (Python / FastAPI)
-O motor de dados e cálculos.
-* **`app/etl_config.py`**: O dicionário de dados central. Mapeia como o sistema deve ler planilhas `.csv`, `.xls` e `.ods`, cruzando "numeradores" (ex: número de homicídios) com "denominadores base" (ex: população total).
-* **`app/services/topsis_core.py`**: A implementação matemática do algoritmo TOPSIS.
-* **`app/routers/`**: APIs RESTful que servem os cálculos matemáticos sob demanda.
-* **Data Lake (SQLite/Pandas):** Processamento em lotes (batch) para armazenamento estático do histórico das cidades.
+- 5.571 municípios cadastrados;
+- 130.579 registros com valor no histórico/snapshot;
+- 65 indicadores configurados;
+- 19 indicadores calculáveis no TOPSIS;
+- cobertura superior a 99% para população, PIB, domicílios, força de trabalho, banda larga, água SNIS e vários indicadores MUNIC;
+- cobertura parcial para SICONFI e esgoto SNIS;
+- indicadores de eventos climáticos com cobertura regional;
+- homicídios temporariamente fora do ranking por cobertura insuficiente.
 
-### 💻 Frontend (React / Vite)
-A interface de *Data Visualization*.
-* **Dashboard Híbrido:** Permite ao usuário cruzar dados reais do banco com simulações de cenários hipotéticos inseridos na interface, sem corromper o banco de dados oficial.
-* **Radar Charts (`react-chartjs-2`):** Visualização de desempenho relativo das cidades separadas por eixos temáticos (escala de 0 a 100), facilitando a identificação visual de pontos fortes e fracos da gestão municipal.
+Os valores detalhados por eixo, fonte e ano estão no relatório de auditoria.
 
----
+## Contribuição da IC
 
-## 📊 Matriz de Indicadores Oficiais
+O projeto entrega uma arquitetura reprodutível para transformar dados governamentais dispersos em indicadores municipais auditáveis. A principal contribuição é combinar ingestão, validação de cobertura, tratamento explícito de ausência e ranking multicritério sem ocultar as limitações dos dados.
 
-A arquitetura do Urbix mapeia **47 indicadores** estruturados em **6 Eixos Temáticos**. 
+## Limitações atuais
 
-### 1. Economia & Governança 💰
-* Taxa de desemprego (CAGED)
-* Taxa de endividamento (SICONFI)
-* Despesas de capital (SICONFI)
-* Receita própria (SICONFI)
-* Orçamento per capita (IBGE/PIB)
-* Mulheres eleitas (TSE)
-* Condenações por corrupção (CNJ)
-* Participação eleitoral (TSE)
+- O SICONFI não cobre todos os municípios na mesma proporção das bases IBGE/MUNIC.
+- As variáveis de esgoto do SNIS têm cobertura menor que as de água.
+- Saldo CAGED representa movimentações formais, não a taxa de desemprego da população.
+- CNES não é usado como prova de prontuário eletrônico, telemedicina ou gerador hospitalar.
+- Bases de eventos climáticos não possuem cobertura nacional completa.
+- Indicadores pendentes permanecem fora do TOPSIS até terem fonte e semântica confirmadas.
 
-### 2. Urbanismo & Segurança 🏘️
-* Moradias inadequadas (MUNIC)
-* População sem-teto (CadÚnico)
-* Efetivo de bombeiros (MUNIC)
-* Mortes por incêndio (DataSUS SIM)
-* Agentes de polícia (MUNIC)
-* Taxa de homicídios (FBSP)
-* Acidentes industriais (Min. do Trabalho)
+Os dados mais recentes auditados incluem IBGE/SIDRA, SICONFI, MUNIC, SNIS, CAGED, CNES, FBSP e banda larga. Indicadores sem fonte, cobertura ou semântica confirmada permanecem fora do ranking.
 
-### 3. Educação & Inovação 📚
-* Relação estudante/professor (ATU)
-* IDEB Anos Iniciais (INEP)
-* Sobrevivência de novos negócios (CAGED)
-* Empregos em TIC (CAGED)
-* Graduados em áreas STEM (INEP Superior)
+## Estrutura
 
-### 4. Sustentabilidade & Smart City (ISO 37122) 🌳
-* Energia gerada por resíduos (SINISA)
-* Iluminação com telegestão (MUNIC)
-* Medidores inteligentes de energia (ANEEL)
-* Edifícios verdes certificados (GBC Brasil)
-* Monitoramento de ar em tempo real (MMA)
-* Serviços urbanos online (MUNIC)
-* Prontuário eletrônico (CNES)
-* Consultas remotas (CNES)
-* Medidores inteligentes de água (SNIS)
-* Áreas cobertas por câmeras (MUNIC)
-* Lixeiras com sensores (SINISA)
-* Semáforos inteligentes (Denatran)
-* Frota de ônibus zero emissão (Senatran)
-* Escolas conectadas (MUNIC)
-* População com seguro contra ameaças (SUSEP)
-* Empregos informais (CAGED)
+- `backend/`: FastAPI, ETL, configuração de indicadores e serviços TOPSIS.
+- `frontend/`: aplicação React/Vite e visualizações.
+- `scripts/`: mapeamento do datalake e utilitários de preparação.
+- `docs/`: documentação operacional, metodológica e relatório da IC.
+- `dicionario_de_dados_etl.md`: inventário atualizado das planilhas do datalake.
 
-### 5. Resiliência a Desastres (ISO 37123 / Sendai) 🚨
-* Escolas com plano de emergência (INEP)
-* População treinada para emergência
-* Hospitais com gerador backup (CNES)
-* População com seguro saúde básico (ANS)
-* Taxa de imunização (DataSUS PNI)
-* Abrigos de emergência (MUNIC)
-* Edifícios vulneráveis a desastres
-* Rotas de evacuação identificadas
-* Reservas de alimentos para 72h (Defesa Civil)
-* Mapas de ameaças públicos
-* Mortalidade por desastres (S2ID)
-* Pessoas afetadas por desastres (S2ID)
-* Perdas econômicas por desastres (S2ID)
-* Danos à infraestrutura básica
+## Execução do backend
 
-### 6. Conectividade 📶
-* Densidade de banda larga fixa (Anatel)
+```powershell
+cd backend
+.\venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
 
----
+API local: `http://localhost:8000`
+Swagger: `http://localhost:8000/docs`
 
-## 🚧 Status Atual e Trabalhos Futuros
+## Executar o ETL nacional
 
-Para manter o rigor metodológico da pesquisa, foi aplicado um **congelamento de escopo (*Code Freeze*)**. 
+O comando abaixo processa todos os municípios cadastrados, consulta SIDRA e SICONFI e atualiza o snapshot:
 
-* **Status Atual:** A infraestrutura matemática (Motor TOPSIS), o painel de visualização (Radar Charts) e o pipeline de banco de dados (SQLite) estão 100% operacionais. Atualmente, **11 indicadores foram extraídos, limpos e validados com sucesso**, servindo como base irrefutável de testes para comprovar a eficácia da arquitetura do ranqueamento.
-* **O que falta (Trabalhos Futuros):** A matriz listada acima contém indicadores cujas fontes brutas (*Data Lake*) possuem formatações de planilhas governamentais altamente complexas (ex: abas aninhadas, falha em chaves primárias do IBGE, células mescladas). O desenvolvimento de *scripts* individuais de tratamento de dados (*Data Wrangling*) para os 36 indicadores restantes é a próxima etapa natural do projeto para obter uma cobertura de 100% da norma ISO.
+```powershell
+cd backend\tools
+..\venv\Scripts\python.exe local_etl_service.py
+```
 
----
-*Desenvolvido por Murilo Fontana Muniz — Iniciação Científica, Universidade Tecnológica Federal do Paraná (UTFPR).*
+Para gerar a auditoria depois da carga:
+
+```powershell
+..\venv\Scripts\python.exe audit_etl_runtime.py
+```
+
+O runner `run_etl_apucarana.py` é apenas um teste limitado e não deve ser usado para a carga nacional.
+
+## Executar o frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Configure `frontend/.env.local`:
+
+```text
+VITE_API_URL=http://localhost:8000
+```
+
+Produção:
+
+- Frontend: `https://urbix-two.vercel.app/`
+- Backend: `https://urbix-api.onrender.com/`
+
+## Endpoint principal
+
+`POST /topsis/ranking-hibrido`
+
+```json
+{
+  "cidades_ibge": ["4101408", "4113700", "4115200"],
+  "simulacoes": []
+}
+```
+
+## Documentação essencial
+
+- `docs/RELATORIO_AUDITORIA_ETL_IC.md`: cobertura, fontes, anos e pendências.
+- `docs/PROXIMOS_PASSOS_CONTINUIDADE_IC.md`: continuidade da pesquisa.
+- `docs/MATRIZ_FONTES_PUBLICAS_URBIX.md`: fontes públicas e mapeamento metodológico.
+- `docs/ARCHITECTURE.md`: arquitetura do sistema.
+- `docs/DEPLOYMENT_GUIDE_FINAL.md`: publicação e operação.
+- `docs/INTEGRATION_TESTING_GUIDE.md`: testes de integração.
+
+## Regra metodológica
+
+Ausência de dado não vira zero. Proxies sem definição comprovada, cobertura insuficiente ou denominador incompatível não entram no cálculo TOPSIS.

@@ -1,12 +1,12 @@
 # Auditoria do ETL Urbix — Relatório para a IC
 
-> Gerado em 30/09/2026 21:46:34 a partir do PostgreSQL do backend.
+> Gerado em 01/10/2026 12:53:26 a partir do PostgreSQL do backend.
 
 ## Resumo executivo
 
 - Municípios cadastrados: **5.571**
-- Registros históricos com valor: **130.890**
-- Registros no snapshot atual: **130.890**
+- Registros históricos com valor: **130.579**
+- Registros no snapshot atual: **130.579**
 - Indicadores configurados: **65**
 - APIs SIDRA configuradas: **4**
 - SICONFI habilitado: **sim**
@@ -17,7 +17,7 @@ A cobertura abaixo usa `valores_indicadores_latest`, o valor mais recente usado 
 
 | Eixo | Com dados | Configurados | Cobertura média | Melhor | Menor |
 |---|---:|---:|---:|---:|---:|
-| Economia e Governança | 4 | 8 | 39,37% | 99,98% | 0,00% |
+| Economia e Governança | 4 | 8 | 38,91% | 99,98% | 0,00% |
 | Sociedade e Segurança | 3 | 7 | 28,56% | 99,71% | 0,00% |
 | Educação e Inovação | 1 | 5 | 20,00% | 100,00% | 0,00% |
 | Sustentabilidade e Smart City | 11 | 26 | 36,79% | 99,71% | 0,00% |
@@ -50,8 +50,8 @@ A cobertura abaixo usa `valores_indicadores_latest`, o valor mais recente usado 
 | Sustentabilidade e Smart City | `atendimento_esgoto_snis` | 3.453 | 61,98% | 2022 | SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz |
 | Sustentabilidade e Smart City | `tratamento_esgoto_snis` | 3.420 | 61,39% | 2022 | SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz |
 | Sustentabilidade e Smart City | `coleta_esgoto_snis` | 3.408 | 61,17% | 2022 | SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz |
-| Economia e Governança | `despesas_capital` | 3.254 | 58,41% | 2023 | SICONFI - Investimentos |
-| Economia e Governança | `receita_propria` | 3.241 | 58,18% | 2023 | SICONFI - Impostos Municipais |
+| Economia e Governança | `despesas_capital` | 3.150 | 56,54% | 2023 | SICONFI - Investimentos |
+| Economia e Governança | `receita_propria` | 3.138 | 56,33% | 2023 | SICONFI - Impostos Municipais |
 | Resiliência e Desastres | `mapas_ameacas_publicos` | 496 | 8,90% | 2024 | MUNIC_2024/Base_MUNIC_2024_20251107.xlsx |
 | Resiliência e Desastres | `rotas_evacuacao` | 403 | 7,23% | 2024 | MUNIC_2024/Base_MUNIC_2024_20251107.xlsx |
 | Resiliência e Desastres | `abrigos_emergencia` | 289 | 5,19% | 2024 | MUNIC_2024/Base_MUNIC_2024_20251107.xlsx |
@@ -107,7 +107,7 @@ A cobertura abaixo usa `valores_indicadores_latest`, o valor mais recente usado 
 |---|---:|---:|---:|
 | Base_MUNIC_2024_20251107.xlsx | 38.666 | 10 | 5.558 |
 | br_mdr_snis_municipio_agua_esgoto.csv.gz | 37.971 | 8 | 5.545 |
-| API SICONFI / RREO-01 | 9.752 | 3 | 3.257 |
+| API SICONFI / RREO-01 | 9.441 | 3 | 3.153 |
 | ATU_MUNICIPIOS_2025.xlsx | 5.571 | 1 | 5.571 |
 | SIDRA (6579) | 5.571 | 1 | 5.571 |
 | SIDRA Censo (6580) | 5.570 | 1 | 5.570 |
