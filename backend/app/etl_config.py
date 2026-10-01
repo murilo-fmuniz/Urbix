@@ -673,3 +673,40 @@ INDICADORES = {
         }
     }
 }
+
+# ==========================================
+# 🌐 1.1 FONTES API EXECUTADAS PELO ETL
+# ==========================================
+FONTES_API = {
+    "sidra": {
+        "populacao_total": {
+            "url": "https://apisidra.ibge.gov.br/values/t/6579/p/2025/n6/all/v/9324?formato=json",
+            "ano": 2025,
+            "fonte": "SIDRA (6579)",
+        },
+        "pib_absoluto": {
+            "url": "https://apisidra.ibge.gov.br/values/t/5938/p/2023/n6/all/v/37?formato=json",
+            "ano": 2023,
+            "fonte": "SIDRA (5938)",
+        },
+        "forca_de_trabalho": {
+            "url": "https://apisidra.ibge.gov.br/values/t/6580/p/2022/n6/all/v/1641?formato=json",
+            "ano": 2022,
+            "fonte": "SIDRA Censo (6580)",
+        },
+        "total_domicilios": {
+            "url": "https://apisidra.ibge.gov.br/values/t/9922/p/2022/n6/all/v/381/c1/6795?formato=json",
+            "ano": 2022,
+            "fonte": "SIDRA Censo (9922)",
+        },
+    },
+    "siconfi": {
+        "habilitado": True,
+        "ano": 2023,
+        "periodo": 6,
+        "url": "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rreo",
+        "anexo": "RREO-Anexo 01",
+        "intervalo_segundos": 0.15,
+        "tentativas": 3,
+    },
+}
