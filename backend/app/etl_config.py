@@ -53,12 +53,13 @@ INDICADORES = {
     # 💰 ECONOMIA E GOVERNANÇA
     # ------------------------------------------
     "economia": {
-        "taxa_desemprego": {
+        "taxa_geracao_empregos": { # 🚀 NOME ALTERADO AQUI!
             "tipo_calculo": "taxa_100k",
+            "status": "validado_localmente",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
-                "coluna_valor": "saldomovimentação"
+                "coluna_valor": "saldomovimentação" # 🚀 VOLTAMOS PARA O SALDO!
             },
             "denominador": "forca_de_trabalho",
             "multiplicador": 100000
@@ -86,10 +87,14 @@ INDICADORES = {
         },
         "orcamento_per_capita": {
             "tipo_calculo": "direto",
+            "status": "validado_localmente",
             "variavel_direta": {
                 "arquivo": "PIB_Municipios/base_de_dados_2010_2023_xlsx/PIB dos Municípios - base de dados 2010-2023.xlsx",
                 "coluna_codigo": "Código do Município",
-                "coluna_valor": "Produto Interno Bruto per capita, a preços correntes (R$ 1,00)"
+                "coluna_valor": "Produto Interno Bruto per capita, a preços correntes (R$ 1,00)",
+                "coluna_ano": "Ano",
+                "filtros": {"Ano": 2023},
+                "agregacao": "latest"
             }
         },
         "mulheres_eleitas": {
@@ -121,15 +126,17 @@ INDICADORES = {
     "sociedade_seguranca": {
         "moradias_inadequadas": {
             "tipo_calculo": "direto", 
+            "status": "pendente_coluna_semantica",
             "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
-                "coluna_codigo": "Cod Munic",
+                "coluna_codigo": "CodMun",
                 "coluna_valor": "Mhab03",
                 "pandas_kwargs": {"sheet_name": "Habitacao", "header": 0}
             }
         },
         "sem_teto": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_arquivo_ausente",
             "numerador": {
                 "arquivo": "cad_unico/cad_unico.txt",
                 "coluna_codigo": "codigo_ibge",
@@ -158,16 +165,19 @@ INDICADORES = {
         },
         "agentes_policia": {
             "tipo_calculo": "taxa_100k",
-            "status": "pendente_confirmacao_fonte",
+            "status": "validado_localmente", 
             "numerador": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Base_MUNIC Recursos humanos - coluna policial não confirmada"
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "MREH012", 
+                "pandas_kwargs": {"sheet_name": "Recursos humanos", "header": 0}
             },
             "denominador": "populacao_total",
             "multiplicador": 100000
         },
         "homicidios": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_cobertura_insuficiente",
             "numerador": {
                 "arquivo": "FBSP/br_fbsp_absp_municipio.csv/br_fbsp_absp_municipio.csv",
                 "coluna_codigo": "id_municipio",
@@ -178,7 +188,7 @@ INDICADORES = {
         },
         "acidentes_industriais": {
             "tipo_calculo": "taxa_100k",
-            "status": "pendente_confirmacao_fonte",
+            "status": "pendente_confirmacao_fonte", # Manter pendente até mapearmos o Ministério do Trabalho
             "numerador": {"arquivo": "NÃO_BAIXADO", "fonte": "Ministério do Trabalho"},
             "denominador": "populacao_total",
             "multiplicador": 100000
@@ -200,6 +210,7 @@ INDICADORES = {
         },
         "ideb_iniciais": {
             "tipo_calculo": "direto",
+            "status": "pendente_arquivo_ausente",
             "variavel_direta": {
                 "arquivo": "divulgacao_anos_iniciais_municipios_2023/divulgacao_anos_iniciais_municipios_2023.xlsx",
                 "coluna_codigo": "CO_MUNICIPIO",
@@ -209,6 +220,7 @@ INDICADORES = {
         },
         "sobrevivencia_negocios": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_proxy_inadequado",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
@@ -219,6 +231,7 @@ INDICADORES = {
         },
         "empregos_tic": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_filtro_cbo",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
@@ -252,6 +265,7 @@ INDICADORES = {
         },
         "iluminacao_telegestao": {
             "tipo_calculo": "direto", 
+            "status": "pendente_coluna_semantica",
             "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
                 "coluna_codigo": "Cod Munic",
@@ -266,11 +280,16 @@ INDICADORES = {
             "denominador": "total_domicilios",
             "multiplicador": 100
         },
-        "edificios_verdes": {
+        "edificios_vulneraveis": {
             "tipo_calculo": "porcentagem",
-            "status": "pendente_confirmacao_fonte",
-            "numerador": {"arquivo": "NÃO_BAIXADO", "fonte": "GBC Brasil"},
-            "denominador": "Total Edifícios Comerciais (IBGE)",
+            "status": "pendente_coluna_semantica",
+            "numerador": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "Mers10", 
+                "pandas_kwargs": {"sheet_name": "Evento climático RS", "header": 0}
+            },
+            "denominador": "total_domicilios",
             "multiplicador": 100
         },
         "monitoramento_ar": {
@@ -280,6 +299,7 @@ INDICADORES = {
         },
         "servicos_urbanos_online": {
             "tipo_calculo": "direto",
+            "status": "pendente_coluna_semantica",
             "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
                 "coluna_codigo": "Cod Munic",
@@ -289,6 +309,7 @@ INDICADORES = {
         },
         "prontuario_eletronico": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_proxy_inadequado",
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
@@ -300,6 +321,7 @@ INDICADORES = {
         },
         "consultas_remotas": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_proxy_inadequado",
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
@@ -311,21 +333,140 @@ INDICADORES = {
         },
         "medidores_inteligentes_agua": {
             "tipo_calculo": "direto", 
+            "status": "validado_localmente",
             "variavel_direta": {
                 "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
                 "coluna_codigo": "id_municipio",
-                "coluna_valor": "indice_hidrometracao"
+                "coluna_valor": "indice_hidrometracao",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "atendimento_agua_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "indice_atendimento_total_agua",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "atendimento_esgoto_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "indice_atendimento_esgoto_agua",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "perdas_distribuicao_agua_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "indice_perda_distribuicao_agua",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "coleta_esgoto_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "indice_coleta_esgoto",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "tratamento_esgoto_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "indice_tratamento_esgoto",
+                "coluna_ano": "ano",
+                "agregacao": "latest",
+                "faixa_valida": [0, 100]
+            }
+        },
+        "investimento_saneamento_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "investimento_total_municipio",
+                "coluna_ano": "ano",
+                "agregacao": "latest"
+            }
+        },
+        "despesa_saneamento_snis": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "SNIS/br_mdr_snis_municipio_agua_esgoto.csv.gz",
+                "coluna_codigo": "id_municipio",
+                "coluna_valor": "despesa_total_servico",
+                "coluna_ano": "ano",
+                "agregacao": "latest"
+            }
+        },
+        "estrutura_tic_municipal": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "Cod Munic",
+                "coluna_valor": "Mtic06",
+                "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0},
+                "mapa_qualitativo": {"Sim": "1", "Não": "0"}
+            }
+        },
+        "servicos_informativos_municipio": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "Cod Munic",
+                "coluna_valor": "Mtic12a1",
+                "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0},
+                "mapa_qualitativo": {"Sim": "1", "Não": "0"}
+            }
+        },
+        "canal_telefonico_municipal": {
+            "tipo_calculo": "direto",
+            "status": "validado_localmente",
+            "variavel_direta": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "Cod Munic",
+                "coluna_valor": "Mtic181",
+                "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0},
+                "mapa_qualitativo": {"Sim": "1", "Não": "0"}
             }
         },
         "areas_cobertas_cameras": {
-            "tipo_calculo": "porcentagem",
-            "status": "pendente_confirmacao_fonte",
-            "numerador": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Base_MUNIC - indicador não confirmado no layout explorado"
-            },
-            "denominador": "Área Total do Município (IBGE)",
-            "multiplicador": 100
+            "tipo_calculo": "direto",
+            "status": "pendente_coluna_semantica",
+            "variavel_direta": {
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "Cod Munic",
+                "coluna_valor": "Mtic181",
+                "pandas_kwargs": {"sheet_name": "Informática e comunicação", "header": 0}
+            }
         },
         "lixeiras_sensores": {
             "tipo_calculo": "porcentagem",
@@ -359,6 +500,7 @@ INDICADORES = {
         },
         "escolas_conectadas_telegestao": {
             "tipo_calculo": "direto",
+            "status": "pendente_coluna_semantica",
             "variavel_direta": {
                 "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
                 "coluna_codigo": "Cod Munic",
@@ -375,6 +517,7 @@ INDICADORES = {
         },
         "empregos_informais": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_proxy_inadequado",
             "numerador": {
                 "arquivo": "CAGED_RAIS/Caged (2026)/CAGEDMOV202605/CAGEDMOV202605.txt",
                 "coluna_codigo": "município",
@@ -411,6 +554,7 @@ INDICADORES = {
         },
         "hospitais_gerador_backup": {
             "tipo_calculo": "taxa_100k",
+            "status": "pendente_proxy_inadequado",
             "numerador": {
                 "arquivo": "CNES/cnes_estabelecimentos_csv/cnes_estabelecimentos.csv",
                 "coluna_codigo": "CO_IBGE",
@@ -443,20 +587,24 @@ INDICADORES = {
         },
         "edificios_vulneraveis": {
             "tipo_calculo": "porcentagem",
-            "status": "pendente_confirmacao_fonte",
+            "status": "pendente_coluna_semantica",
             "numerador": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Evento climático RS - layout não numérico confirmado"
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "COLE_AQUI_O_CODIGO", # Procure no .md na aba Evento climático RS
+                "pandas_kwargs": {"sheet_name": "Evento climático RS", "header": 0}
             },
             "denominador": "total_domicilios",
             "multiplicador": 100
         },
         "rotas_evacuacao": {
             "tipo_calculo": "taxa_100k",
-            "status": "pendente_confirmacao_fonte",
+            "status": "validado_localmente",
             "numerador": {
-                "arquivo": "NÃO_BAIXADO",
-                "fonte": "Evento climático RS - layout não numérico confirmado"
+                "arquivo": "MUNIC_2024/Base_MUNIC_2024_20251107.xlsx",
+                "coluna_codigo": "CodMun",
+                "coluna_valor": "Mers111", 
+                "pandas_kwargs": {"sheet_name": "Evento climático RS", "header": 0}
             },
             "denominador": "populacao_total",
             "multiplicador": 100000
@@ -513,7 +661,7 @@ INDICADORES = {
     # ------------------------------------------
     "conectividade": {
         "densidade_banda_larga": {
-            "tipo_calculo": "taxa_100k", 
+            "tipo_calculo": "taxa_100", 
             "numerador": {
                 "arquivo": "acessos_banda_larga_fixa/Acessos_Banda_Larga_Fixa_2021.csv",
                 "coluna_codigo": "Código IBGE Município",
@@ -521,7 +669,7 @@ INDICADORES = {
                 "pandas_kwargs": {"sep": ";", "encoding": "utf-8"}
             },
             "denominador": "populacao_total",
-            "multiplicador": 100000
+            "multiplicador": 100
         }
     }
 }

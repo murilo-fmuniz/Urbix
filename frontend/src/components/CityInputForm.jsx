@@ -42,10 +42,13 @@ function CityInputForm({ onSubmit, loading }) {
 
   const updateManualIndicator = (index, field, value) => {
     const newCities = [...cities];
-    newCities[index].manual_indicators = {
-      ...newCities[index].manual_indicators,
-      [field]: value ? parseFloat(value) : 0.0,
-    };
+    const manualIndicators = { ...newCities[index].manual_indicators };
+    if (value === '') {
+      delete manualIndicators[field];
+    } else if (!Number.isNaN(Number(value))) {
+      manualIndicators[field] = Number(value);
+    }
+    newCities[index].manual_indicators = manualIndicators;
     setCities(newCities);
   };
 
@@ -134,7 +137,7 @@ function CityInputForm({ onSubmit, loading }) {
 
                 <div className="indicators-grid">
                   <div className="indicator-input">
-                    <label>Iluminação com Telegestão (%)</label>
+                    <label>Estrutura municipal de TIC (0/1)</label>
                     <input
                       type="number"
                       min="0"
@@ -144,7 +147,7 @@ function CityInputForm({ onSubmit, loading }) {
                       onChange={(e) =>
                         updateManualIndicator(
                           index,
-                          'pontos_iluminacao_telegestao',
+                          'estrutura_tic_municipal',
                           e.target.value
                         )
                       }
@@ -152,7 +155,7 @@ function CityInputForm({ onSubmit, loading }) {
                   </div>
 
                   <div className="indicator-input">
-                    <label>Medidores Inteligentes Energia (%)</label>
+                    <label>Atendimento de água SNIS (%)</label>
                     <input
                       type="number"
                       min="0"
@@ -162,7 +165,7 @@ function CityInputForm({ onSubmit, loading }) {
                       onChange={(e) =>
                         updateManualIndicator(
                           index,
-                          'medidores_inteligentes_energia',
+                          'atendimento_agua_snis',
                           e.target.value
                         )
                       }
@@ -170,7 +173,7 @@ function CityInputForm({ onSubmit, loading }) {
                   </div>
 
                   <div className="indicator-input">
-                    <label>Bombeiros por 100k hab</label>
+                    <label>Bombeiros (numerador)</label>
                     <input
                       type="number"
                       min="0"
@@ -179,7 +182,7 @@ function CityInputForm({ onSubmit, loading }) {
                       onChange={(e) =>
                         updateManualIndicator(
                           index,
-                          'bombeiros_por_100k',
+                          'bombeiros_numerador',
                           e.target.value
                         )
                       }
@@ -187,7 +190,7 @@ function CityInputForm({ onSubmit, loading }) {
                   </div>
 
                   <div className="indicator-input">
-                    <label>Área Verde Mapeada (%)</label>
+                    <label>Atendimento de esgoto SNIS (%)</label>
                     <input
                       type="number"
                       min="0"
@@ -197,7 +200,7 @@ function CityInputForm({ onSubmit, loading }) {
                       onChange={(e) =>
                         updateManualIndicator(
                           index,
-                          'area_verde_mapeada',
+                          'atendimento_esgoto_snis',
                           e.target.value
                         )
                       }

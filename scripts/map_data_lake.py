@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
-"""Mapeia o data lake local em backend/data/planilhas e gera um dicionário de dados em Markdown.
-
-Regras Atualizadas (Agressivas):
-- Percorre TODAS as abas do Excel (não para na primeira que achar).
-- Desce até a linha 40 buscando cabeçalhos (Dynamic Sniffing profundo).
-- Retorna múltiplas tabelas válidas dentro do mesmo arquivo.
-- Gera dicionario_de_dados_etl.md na raiz do projeto listando tudo.
+"""
+Mapeia o data lake local em backend/data/planilhas e gera um dicionário de dados em Markdown.
+Versão Turbinada: Força bruta em Encodings e Separadores para arquivos Governamentais.
 """
 
 from __future__ import annotations
@@ -14,8 +10,12 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional, List, Dict, Any
+import warnings
 
 import pandas as pd
+
+# Ignora os warnings chatos do Pandas sobre extensões de Excel antigas
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PLANILHAS_ROOT = PROJECT_ROOT / "backend" / "data" / "planilhas"
@@ -30,7 +30,6 @@ def normalize_rel_dir(path: Path) -> str:
         rel = path.relative_to(PLANILHAS_ROOT)
     except ValueError:
         rel = path
-
     if str(rel) in {".", ""}:
         return "raiz"
     parts = [part for part in rel.parts if part not in {".", ""}]
@@ -42,11 +41,9 @@ def is_meaningful_columns(columns: Iterable[str]) -> bool:
     cols = [str(col).strip() for col in columns if str(col).strip()]
     if len(cols) < 2: 
         return False
-
     meaningful = [col for col in cols if not col.lower().startswith("unnamed")]
     if len(meaningful) < (len(cols) * 0.4):
         return False
-
     return True
 
 
@@ -55,30 +52,45 @@ def clean_columns(columns: Iterable[str]) -> list[str]:
 
 
 def read_csv_headers(path: Path) -> List[Dict[str, Any]]:
-    """Lê cabeçalhos de CSV/TXT descendo até 40 linhas."""
+    """Tenta ler CSV/TXT combinando Encodings e Separadores, descendo até 40 linhas."""
     resultados = []
+    encodings = ["utf-8", "latin1", "iso-8859-1", "cp1252", "utf-8-sig"]
+    separators = [";", ",", "\t", "|"]
     
+    is_gz = path.name.lower().endswith('.gz')
+    compression = 'gzip' if is_gz else None
+
     for skiprows in range(40): 
-        try:
-            df = pd.read_csv(
-                path,
-                nrows=5, 
-                sep=None,
-                engine="python",
-                skiprows=skiprows,
-                on_bad_lines="skip",
-                encoding="utf-8-sig",
-            )
-            cols = clean_columns(df.columns)
-            if is_meaningful_columns(cols):
-                resultados.append({
-                    "sheet": "CSV_Unico",
-                    "skiprows": skiprows,
-                    "columns": cols
-                })
-                break # Se achou no CSV, não precisa descer mais linhas
-        except Exception:
-            continue
+        success = False
+        for enc in encodings:
+            if success: break
+            for sep in separators:
+                try:
+                    df = pd.read_csv(
+                        path,
+                        nrows=5, 
+                        sep=sep,
+                        skiprows=skiprows,
+                        encoding=enc,
+                        compression=compression,
+                        on_bad_lines="skip",
+                        engine="python" if sep == "|" else "c"
+                    )
+                    cols = clean_columns(df.columns)
+                    if is_meaningful_columns(cols):
+                        resultados.append({
+                            "sheet": "CSV/TXT",
+                            "skiprows": skiprows,
+                            "encoding": enc,
+                            "separator": sep,
+                            "columns": cols
+                        })
+                        success = True
+                        break # Achou o separador certo
+                except Exception:
+                    continue
+        if success:
+            break # Achou no CSV, não precisa descer mais linhas
 
     return resultados
 
@@ -87,21 +99,17 @@ def read_excel_headers(path: Path) -> tuple[List[Dict[str, Any]], list[str], Opt
     """Varre TODAS as abas do Excel até a linha 40."""
     resultados = []
     try:
-        xls = pd.ExcelFile(path)
+        # Usa xlrd para .xls antigos (padrão IBGE) e openpyxl para .xlsx
+        engine = "xlrd" if path.suffix.lower() == ".xls" else "openpyxl"
+        xls = pd.ExcelFile(path, engine=engine)
         sheet_names = list(xls.sheet_names)
     except Exception as exc:
         return [], [], f"{type(exc).__name__}: {exc}"
 
-    # Varre TODAS as abas do arquivo
     for sheet_name in sheet_names:
         for skiprows in range(40): 
             try:
-                df = pd.read_excel(
-                    xls,
-                    sheet_name=sheet_name,
-                    nrows=0,
-                    skiprows=skiprows,
-                )
+                df = pd.read_excel(xls, sheet_name=sheet_name, nrows=0, skiprows=skiprows)
                 cols = clean_columns(df.columns)
                 if is_meaningful_columns(cols):
                     resultados.append({
@@ -109,7 +117,7 @@ def read_excel_headers(path: Path) -> tuple[List[Dict[str, Any]], list[str], Opt
                         "skiprows": skiprows,
                         "columns": cols
                     })
-                    break # Achou o cabeçalho desta aba, vai para a próxima aba
+                    break 
             except Exception:
                 continue
 
@@ -175,16 +183,16 @@ def build_report(scan_results: list[dict]) -> str:
         grouped[folder_name].append(item)
 
     lines: list[str] = []
-    lines.append("# Dicionário de Dados do ETL (Varredura Extrema)")
+    lines.append("# 📊 Dicionário de Dados do ETL Urbix")
     lines.append("")
     lines.append(f"_Gerado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_")
     lines.append("")
-    lines.append(f"- Pasta raiz varrida: `{PLANILHAS_ROOT}`")
-    lines.append(f"- Arquivos analisados: {len(scan_results)}")
+    lines.append(f"- **Pasta raiz varrida:** `{PLANILHAS_ROOT}`")
+    lines.append(f"- **Arquivos analisados:** {len(scan_results)}")
     lines.append("")
 
     for folder_name in sorted(grouped.keys()):
-        lines.append(f"## {folder_name}")
+        lines.append(f"## 📁 {folder_name}")
         lines.append("")
 
         for item in sorted(grouped[folder_name], key=lambda x: x["path"].name.lower()):
@@ -199,16 +207,24 @@ def build_report(scan_results: list[dict]) -> str:
                     aba = tab["sheet"]
                     skip = tab["skiprows"]
                     cols = tab["columns"]
-                    lines.append(f"  - 📁 **Aba/Tabela:** `{aba}` (Cabeçalho detectado na linha {skip})")
+                    
+                    meta_info = f"(Cabeçalho na linha {skip})"
+                    if aba == "CSV/TXT":
+                        meta_info = f"(Linha {skip} | Sep: '{tab['separator']}' | Enc: {tab['encoding']})"
+                    
+                    lines.append(f"  - 📌 **Tabela Mapeada:** `{aba}` {meta_info}")
                     lines.append(f"    - Total de colunas: {len(cols)}")
+                    lines.append("    - **Colunas:**")
                     for col in cols:
-                        lines.append(f"      * {col}")
+                        lines.append(f"      * `{col}`")
             else:
                 lines.append("- ⚠️ Nenhum cabeçalho válido detectado")
 
             if item["error"]:
                 lines.append(f"- 🛑 Status: {item['error']}")
 
+            lines.append("")
+            lines.append("---")
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -222,7 +238,7 @@ def main() -> int:
     scan_results: list[dict] = []
 
     print("=" * 80)
-    print("MAPEAMENTO EXTREMO DO DATA LAKE")
+    print("🚀 INICIANDO MAPEAMENTO EXTREMO DO DATA LAKE")
     print("=" * 80)
     print(f"Raiz: {PLANILHAS_ROOT}")
     print(f"Arquivos candidatos: {len(files)}")
@@ -232,22 +248,24 @@ def main() -> int:
         if file_path.name.startswith("._") or file_path.name == ".DS_Store":
             continue
 
+        print(f"Buscando em: {file_path.name}...", end=" ")
         result = scan_file(file_path)
         scan_results.append(result)
 
         tabelas_encontradas = len(result["tables"])
-        status = f"OK ({tabelas_encontradas} tabelas)" if tabelas_encontradas else "SEM DADOS"
-        if result["error"]:
-            status = f"ERRO ({result['error']})"
-
-        print(f"{file_path.relative_to(PLANILHAS_ROOT)} -> {status}")
+        if tabelas_encontradas:
+            print(f"✅ OK ({tabelas_encontradas} tabelas)")
+        elif result["error"]:
+            print(f"❌ ERRO ({result['error']})")
+        else:
+            print("⚠️ SEM DADOS")
 
     report = build_report(scan_results)
     REPORT_FILE.write_text(report, encoding="utf-8")
 
     print()
-    print(f"Relatório detalhado gerado em: {REPORT_FILE}")
-    print("Use o markdown gerado para reconfigurar os ponteiros do etl_config.py!")
+    print(f"🎉 Relatório detalhado gerado em: {REPORT_FILE}")
+    print("Abra o arquivo .md para ver os nomes exatos das colunas e atualizar o etl_config.py!")
     return 0
 
 

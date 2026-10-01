@@ -153,6 +153,23 @@ def _agrupar_valores_por_cidade(df_chunk: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _normalizar_filtro(valor) -> str:
+    return _normalizar_texto(valor).replace("-", "")
+
+
+def _aplicar_filtros(df: pd.DataFrame, filtros: dict, colunas: dict) -> pd.DataFrame:
+    """Aplica filtros declarativos antes da agregação municipal."""
+    for nome, esperado in (filtros or {}).items():
+        coluna = colunas.get(nome)
+        if not coluna or coluna not in df.columns:
+            return df.iloc[0:0].copy()
+        valores = esperado if isinstance(esperado, (list, tuple, set)) else [esperado]
+        aceitos = {_normalizar_filtro(valor) for valor in valores}
+        mascara = df[coluna].map(_normalizar_filtro).isin(aceitos)
+        df = df.loc[mascara].copy()
+    return df
+
+
 def _deduplicar_mais_recente(registros: list[ValorIndicador]) -> list[ValorIndicador]:
     """Mantém somente o valor mais recente por cidade + indicador."""
     melhor_por_chave: dict[tuple[str, str], ValorIndicador] = {}
@@ -231,13 +248,20 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
     col_codigo = config.get("coluna_codigo")
     col_valor = config.get("coluna_valor")
     kwargs = dict(config.get("pandas_kwargs", {}))
+    agregacao = str(config.get("agregacao", "sum")).lower()
+    filtros = config.get("filtros", {})
+    coluna_ano = config.get("coluna_ano")
+    mapa_quali = config.get("mapa_qualitativo", {
+        "Sim": "1", "Não": "0", "SIM": "1", "NÃO": "0",
+        "NAO": "0", "sim": "1", "não": "0", "nao": "0",
+        "S": "1", "N": "0", "Ativo": "1", "Ativa": "1",
+        "Inativo": "0", "Inativa": "0",
+    })
+    faixa_valida = config.get("faixa_valida")
 
     if not col_codigo or not col_valor or col_valor == "VERIFICAR_NO_EXCEL":
         return
 
-    # -------------------------------------------------------------
-    # 🚀 O SEGREDO 1: Cadastra o 'numerador' como um indicador base!
-    # -------------------------------------------------------------
     try:
         db_session.execute(text(f"""
             INSERT INTO indicadores (id, nome, norma_iso, peso, impacto)
@@ -254,23 +278,35 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
         if caminho_completo.name.lower().endswith((".txt", ".csv", ".gz")):
             reader = _ler_csv_flexivel(caminho_completo, kwargs)
             chunks = reader
-            has_iterator = True
         else:
             df = pd.read_excel(caminho_completo, **kwargs)
             chunks = [df]
-            has_iterator = False
 
+        # Acumulador global: mantém o resultado por cidade sem misturar anos
+        acumulador_cidades = {}
+        acumulador_anos = {}
         total_processado = 0
+
         for chunk_num, chunk in enumerate(chunks, start=1):
             if chunk is None or chunk.empty:
                 continue
 
-            col_codigo_real = _escolher_melhor_coluna(chunk.columns, col_codigo)
-            col_valor_real = _escolher_melhor_coluna(chunk.columns, col_valor)
+            colunas_reais = {
+                nome: _escolher_melhor_coluna(chunk.columns, nome)
+                for nome in set([col_codigo, col_valor, coluna_ano, *filtros.keys()])
+                if nome
+            }
+            chunk = _aplicar_filtros(chunk, filtros, colunas_reais)
+            col_codigo_real = colunas_reais.get(col_codigo)
+            col_valor_real = colunas_reais.get(col_valor)
             if not col_codigo_real or not col_valor_real:
                 continue
 
-            df_chunk = chunk[[col_codigo_real, col_valor_real]].copy()
+            col_ano_real = colunas_reais.get(coluna_ano) if coluna_ano else None
+            colunas_leitura = [col_codigo_real, col_valor_real]
+            if col_ano_real and col_ano_real not in colunas_leitura:
+                colunas_leitura.append(col_ano_real)
+            df_chunk = chunk[colunas_leitura].copy()
             df_chunk = df_chunk.dropna(subset=[col_codigo_real, col_valor_real]).copy()
 
             if df_chunk.empty:
@@ -284,54 +320,112 @@ def extrair_dados_locais(id_variavel: str, config: dict, db_session, ano_padrao=
 
             df_chunk[col_valor_real] = df_chunk[col_valor_real].astype(str).str.strip()
             
-            # -------------------------------------------------------------
-            # 🚀 O SEGREDO 3: Tradutor Universal Qualitativo para o TOPSIS!
-            # -------------------------------------------------------------
-            mapa_quali = {
-                "Sim": "1", "Não": "0", "SIM": "1", "NÃO": "0", "NAO": "0", 
-                "sim": "1", "não": "0", "nao": "0", "S": "1", "N": "0"
-            }
             df_chunk[col_valor_real] = df_chunk[col_valor_real].replace(mapa_quali)
 
-            df_chunk["valor_numerico"] = (
-                df_chunk[col_valor_real]
-                .str.replace(r"[^0-9,.-]", "", regex=True)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False)
-            )
-            df_chunk["valor_numerico"] = pd.to_numeric(df_chunk["valor_numerico"], errors="coerce")
-            df_chunk = _agrupar_valores_por_cidade(df_chunk[["codigo_ibge", "valor_numerico"]]).copy()
+            # 🚀 TRATAMENTO INTELIGENTE DE NÚMEROS (Preserva decimais e corrige o bug de escala)
+            def limpar_numero(val):
+                if pd.isna(val):
+                    return None
+                if isinstance(val, (int, float)):
+                    return float(val)
+                
+                texto = str(val).strip()
+                # Se tem ponto e vírgula, assume padrão BR (ex: 1.234,56 -> 1234.56)
+                if "," in texto and "." in texto:
+                    texto = texto.replace(".", "").replace(",", ".")
+                # Se tem apenas vírgula, substitui por ponto (ex: 1234,56 -> 1234.56)
+                elif "," in texto:
+                    texto = texto.replace(",", ".")
+                
+                # Remove caracteres inválidos mantendo apenas números, ponto e sinal de menos
+                texto = re.sub(r"[^0-9.-]", "", texto)
+                
+                try:
+                    return float(texto)
+                except ValueError:
+                    return None
+
+            df_chunk["valor_numerico"] = df_chunk[col_valor_real].apply(limpar_numero)
+            if faixa_valida and len(faixa_valida) == 2:
+                minimo, maximo = faixa_valida
+                df_chunk.loc[
+                    (df_chunk["valor_numerico"] < minimo)
+                    | (df_chunk["valor_numerico"] > maximo),
+                    "valor_numerico",
+                ] = pd.NA
+            if col_ano_real:
+                df_chunk["ano_numerico"] = pd.to_numeric(df_chunk[col_ano_real], errors="coerce")
+            else:
+                df_chunk["ano_numerico"] = float(ano_padrao)
+
+            df_chunk = df_chunk.dropna(subset=["valor_numerico", "codigo_ibge"]).copy()
+            if agregacao == "latest" and col_ano_real:
+                df_chunk = (
+                    df_chunk.sort_values(["codigo_ibge", "ano_numerico"])
+                    .drop_duplicates(["codigo_ibge", "ano_numerico"], keep="last")
+                )
+            elif agregacao in {"mean", "max", "min"}:
+                agrupador = df_chunk.groupby("codigo_ibge")["valor_numerico"]
+                operador = getattr(agrupador, agregacao)()
+                df_chunk = operador.reset_index()
+                df_chunk["ano_numerico"] = float(ano_padrao)
+            else:
+                df_chunk = _agrupar_valores_por_cidade(df_chunk[["codigo_ibge", "valor_numerico"]]).copy()
+                df_chunk["ano_numerico"] = float(ano_padrao)
             df_chunk = df_chunk.dropna(subset=["valor_numerico"]).copy()
 
-            registros_lote = []
+            # Em vez de salvar no banco, nós acumulamos na memória!
             for row in df_chunk.itertuples(index=False):
-                codigo_ibge = getattr(row, "codigo_ibge")
+                str_codigo = str(getattr(row, "codigo_ibge"))
                 valor = getattr(row, "valor_numerico")
                 
-                # -------------------------------------------------------------
-                # 🚀 O SEGREDO 2: Filtra os lixos oficiais antes de salvar!
-                # -------------------------------------------------------------
-                str_codigo = str(codigo_ibge)
                 if not str_codigo or pd.isna(valor) or str_codigo in ["0999999", "9999999"] or len(str_codigo) != 7:
                     continue
                     
-                registros_lote.append(
-                    ValorIndicador(
-                        codigo_ibge=str_codigo,
-                        id_indicador=id_variavel,
-                        ano_referencia=ano_padrao,
-                        valor=float(valor),
-                        fonte=caminho_completo.name,
-                    )
+                ano = float(getattr(row, "ano_numerico", ano_padrao))
+                if agregacao == "latest" and col_ano_real:
+                    if str_codigo not in acumulador_anos or ano >= acumulador_anos[str_codigo]:
+                        acumulador_anos[str_codigo] = ano
+                        acumulador_cidades[str_codigo] = float(valor)
+                elif agregacao == "mean":
+                    total, quantidade = acumulador_cidades.get(str_codigo, (0.0, 0))
+                    acumulador_cidades[str_codigo] = (total + float(valor), quantidade + 1)
+                elif agregacao == "max":
+                    acumulador_cidades[str_codigo] = max(acumulador_cidades.get(str_codigo, float("-inf")), float(valor))
+                elif agregacao == "min":
+                    acumulador_cidades[str_codigo] = min(acumulador_cidades.get(str_codigo, float("inf")), float(valor))
+                else:
+                    acumulador_cidades[str_codigo] = acumulador_cidades.get(str_codigo, 0.0) + float(valor)
+
+            total_processado += len(df_chunk)
+
+        # 🚀 O GRAND FINALE: Salva o dicionário todo de uma vez só!
+        registros_lote = []
+        for codigo_ibge, valor_total in acumulador_cidades.items():
+            ano_registro = acumulador_anos.get(codigo_ibge, ano_padrao)
+            if agregacao == "mean":
+                total, quantidade = valor_total
+                valor_total = total / quantidade if quantidade else None
+            if valor_total is None:
+                continue
+            registros_lote.append(
+                ValorIndicador(
+                    codigo_ibge=codigo_ibge,
+                    id_indicador=id_variavel,
+                    ano_referencia=int(ano_registro),
+                    valor=valor_total,
+                    fonte=caminho_completo.name,
                 )
+            )
 
-            total_processado += _salvar_lote_streaming(db_session, registros_lote, id_variavel, f"chunk {chunk_num}")
-
-        if total_processado == 0:
+        if registros_lote:
+            _salvar_lote_streaming(db_session, registros_lote, id_variavel, "Carga Consolidada")
+        elif total_processado == 0:
             print(f"⚠️ {id_variavel}: nenhum registro foi processado.")
 
     except Exception as exc:
         print(f"❌ ERRO em {id_variavel}: {exc}")
+
 
 # ==============================================================================
 # NOVOS MOTORES HÍBRIDOS (API PÚBLICA SIDRA E SICONFI)
@@ -340,10 +434,20 @@ def extrair_dado_base_sidra(id_variavel: str, config: dict, db_session):
     """Bate no endpoint direto do IBGE e processa o JSON de forma nativa e rápida."""
     print(f"🌐 Buscando {id_variavel} via API SIDRA (IBGE)...")
     try:
-        print(f"⏳ Aguardando resposta da API SIDRA para {id_variavel}...")
-        response = requests.get(config["url"], timeout=30)
-        response.raise_for_status()
-        print(f"📡 SIDRA {id_variavel}: status={response.status_code}, bytes={len(response.content)}")
+        max_tentativas = 3
+        for tentativa in range(1, max_tentativas + 1):
+            print(f"⏳ Aguardando SIDRA para {id_variavel} (Tentativa {tentativa}/{max_tentativas})...")
+            try:
+                # Aumentamos o timeout para 45s para dar tempo do servidor pensar
+                response = requests.get(config["url"], timeout=45)
+                response.raise_for_status()
+                break # Se deu 200 OK, sai do loop de tentativas!
+            except requests.exceptions.RequestException as e:
+                if tentativa == max_tentativas:
+                    raise e # Se falhou 3 vezes, desiste de vez
+                import time
+                print(f"⚠️ Servidor lento. Aguardando 5s para tentar de novo...")
+                time.sleep(5)
 
         try:
             dados = response.json()
@@ -570,6 +674,9 @@ def deduplicar_historico_mesmo_ano(db_session):
 
 
 def run():
+
+    inicio_etl = time.time()
+
     print("=" * 60)
     print("🚀 INICIANDO PIPELINE ETL URBIX HÍBRIDO (STREAMING + APIS)")
     print("=" * 60)
@@ -626,11 +733,11 @@ def run():
     # ---------------------------------------------------------
     # BLOCO 3: SICONFI (A função gerencia suas próprias sessões)
     # ---------------------------------------------------------
-    extrair_receita_siconfi([
+    '''extrair_receita_siconfi([
         "receita_total_municipio", 
         "receita_propria_numerador", 
         "despesas_capital_numerador"
-    ])
+    ])'''
 
     print("\n--- EXTRAINDO PLANILHAS LOCAIS COMPLEXAS (STREAMING POR CHUNKS) ---")
     
@@ -640,10 +747,22 @@ def run():
     with SessionLocal() as db_local:
         for dominio, indicadores in INDICADORES.items():
             for id_ind, regras in indicadores.items():
+                status = str(regras.get("status", "")).strip().lower()
+                if any(token in status for token in ("pendente", "incompleto", "nao_baixado", "implementacao")):
+                    print(f"⏭️ {id_ind}: ignorado nesta carga (status={status})")
+                    continue
                 if regras["tipo_calculo"] == "direto":
-                    extrair_dados_locais(id_ind, regras["variavel_direta"], db_local)
+                    config = regras["variavel_direta"]
+                    if config.get("arquivo") not in {"API", "NÃO_BAIXADO"}:
+                        extrair_dados_locais(id_ind, config, db_local)
+                    else:
+                        print(f"⏭️ {id_ind}: fonte externa mantida fora da carga local ({config.get('arquivo')})")
                 else:
-                    extrair_dados_locais(f"{id_ind}_numerador", regras["numerador"], db_local)
+                    config = regras["numerador"]
+                    if config.get("arquivo") not in {"API", "NÃO_BAIXADO"}:
+                        extrair_dados_locais(f"{id_ind}_numerador", config, db_local)
+                    else:
+                        print(f"⏭️ {id_ind}: numerador externo mantido fora da carga local ({config.get('arquivo')})")
         db_local.commit()
 
     print("\n--- DEDUPLICANDO HISTÓRICO E ATUALIZANDO SNAPSHOT ---")
@@ -656,7 +775,11 @@ def run():
         atualizar_snapshot_latest(db_final)
         db_final.commit()
 
-    print("\n🎉 ETL FINALIZADO COM SUCESSO!")
+    fim_etl = time.time() # ⏱️ PARA O CRONÔMETRO AQUI
+    minutos_totais = (fim_etl - inicio_etl) / 60
+
+    print(f"\n🎉 ETL FINALIZADO COM SUCESSO!")
+    print(f"⏱️ Tempo total de execução: {minutos_totais:.2f} minutos")
 
 if __name__ == "__main__":
     run()

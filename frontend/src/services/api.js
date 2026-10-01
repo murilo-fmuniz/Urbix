@@ -160,8 +160,8 @@ export const atualizarColeta = async (coletaId, coletaData) => {
 /**
  * Obtém ranking de cidades usando método TOPSIS com dados híbridos
  * 
- * @param {Array<{codigo_ibge: string, manual_indicators?: {...}}>} cities
- * @returns {Promise<{ranking: Array, detalhes_calculo: {...}}>}
+ * @param {{cidades_ibge: string[], simulacoes?: Array<{codigo_ibge: string, valores_brutos: Object}>}} payload
+ * @returns {Promise<Array<{codigo_ibge: string, nome_cidade: string, pontuacao_topsis: number, valores_calculados: Object}>>}
  * 
  * Exemplo:
  * const result = await getHybridRanking([
@@ -175,9 +175,9 @@ export const atualizarColeta = async (coletaId, coletaData) => {
  *   }
  * ]);
  */
-export const getHybridRanking = async (cities) => {
+export const getHybridRanking = async (payload) => {
   try {
-    const response = await api.post('/topsis/ranking-hibrido', cities);
+    const response = await api.post('/topsis/ranking-hibrido', payload);
     return response.data;
   } catch (error) {
     // Tratamento de erros específicos
@@ -192,8 +192,10 @@ export const getHybridRanking = async (cities) => {
         );
       }
       if (status === 400) {
-        // Bad request (ex: <2 cidades)
         throw new Error(detail);
+      }
+      if (status === 404) {
+        throw new Error(detail || 'Nenhum dado encontrado para as cidades selecionadas');
       }
       if (status === 502) {
         throw new Error(
