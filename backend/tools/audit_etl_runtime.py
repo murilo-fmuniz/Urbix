@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from datetime import datetime
@@ -81,6 +82,16 @@ def source_summary(conn) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def latest_run_log() -> dict | None:
+    logs = sorted((backend / "data" / "etl_runs").glob("etl_*.json"), key=lambda path: path.stat().st_mtime)
+    if not logs:
+        return None
+    try:
+        return json.loads(logs[-1].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def build_report(output: Path) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
     with engine.connect() as conn:
@@ -110,6 +121,7 @@ def build_report(output: Path) -> None:
                 "stats": db_stats(conn, indicator, total_municipios),
             })
 
+        run_log = latest_run_log()
         lines = [
             "# Auditoria do ETL Urbix — Relatório para a IC", "",
             f"> Gerado em {datetime.now():%d/%m/%Y %H:%M:%S} a partir do PostgreSQL do backend.", "",
@@ -121,6 +133,30 @@ def build_report(output: Path) -> None:
             f"- APIs SIDRA configuradas: **{fmt(len(FONTES_API.get('sidra', {})))}**",
             f"- SICONFI habilitado: **{'sim' if FONTES_API.get('siconfi', {}).get('habilitado') else 'não'}**", "",
             "A cobertura abaixo usa `valores_indicadores_latest`, o valor mais recente usado pelo TOPSIS.", "",
+        ]
+        if run_log:
+            duration_minutes = (run_log.get("duration_seconds") or 0) / 60
+            siconfi = next((item for item in run_log.get("apis", []) if item.get("api") == "SICONFI"), None)
+            lines += [
+                "## Última execução do ETL",
+                "",
+                f"- ID: `{run_log.get('run_id', '—')}`",
+                f"- Status: **{run_log.get('status', '—')}**",
+                f"- Início: `{run_log.get('started_at', '—')}`",
+                f"- Fim: `{run_log.get('finished_at', '—')}`",
+                f"- Duração: **{fmt(duration_minutes)} minutos**",
+                f"- Escopo: **{run_log.get('scope', '—')}**",
+            ]
+            if siconfi:
+                lines += [
+                    f"- SICONFI: **{fmt(siconfi.get('consultadas', 0))}** municípios consultados, **{fmt(siconfi.get('sucesso', 0))}** respostas válidas, **{fmt(siconfi.get('falhas', 0))}** falhas, **{fmt(siconfi.get('inseridos', 0))}** registros inseridos.",
+                ]
+            lines += [
+                f"- Eventos de APIs registrados: **{fmt(len(run_log.get('apis', [])))}**",
+                f"- Eventos de indicadores registrados: **{fmt(len(run_log.get('indicators', [])))}**",
+                "",
+            ]
+        lines += [
             "## Cobertura por eixo", "",
             "| Eixo | Com dados | Configurados | Cobertura média | Melhor | Menor |",
             "|---|---:|---:|---:|---:|---:|",

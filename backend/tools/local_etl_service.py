@@ -1,10 +1,13 @@
 import csv
 import gzip
 import json
+import atexit
 import re
 import sys
 import time
 import unicodedata
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +26,61 @@ from tools.seed_metadata import seed_metadata
 PLANILHAS_ROOT = backend_dir / "data" / "planilhas"
 CATALOGO_IBGE = backend_dir / "app" / "data" / "ibge_catalog.json"
 CHUNK_SIZE = 100_000
+ETL_LOG_DIR = backend_dir / "data" / "etl_runs"
+RUN_LOGGER = None
+
+
+class ETLRunLogger:
+    """Registra métricas estruturadas sem expor payloads ou credenciais."""
+
+    def __init__(self):
+        self.started_at = datetime.now(timezone.utc)
+        self.payload = {
+            "run_id": uuid.uuid4().hex,
+            "status": "running",
+            "started_at": self.started_at.isoformat(),
+            "finished_at": None,
+            "duration_seconds": None,
+            "scope": "national",
+            "indicators": [],
+            "apis": [],
+            "events": [],
+        }
+        ETL_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        self.path = ETL_LOG_DIR / f"etl_{self.started_at:%Y%m%dT%H%M%SZ}_{self.payload['run_id'][:8]}.json"
+        self.flush()
+
+    def add(self, category: str, **values):
+        self.payload.setdefault(category, []).append(values)
+        self.flush()
+
+    def event(self, name: str, **values):
+        self.add("events", name=name, timestamp=datetime.now(timezone.utc).isoformat(), **values)
+
+    def finish(self, status: str = "success", error: str | None = None):
+        finished = datetime.now(timezone.utc)
+        self.payload["status"] = status
+        self.payload["finished_at"] = finished.isoformat()
+        self.payload["duration_seconds"] = round((finished - self.started_at).total_seconds(), 3)
+        if error:
+            self.payload["error"] = error
+        self.flush()
+
+    def flush(self):
+        self.path.write_text(json.dumps(self.payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+
+def _log_event(category: str, **values):
+    if RUN_LOGGER is not None:
+        RUN_LOGGER.add(category, **values)
+
+
+def _finalize_unfinished_run():
+    if RUN_LOGGER is not None and RUN_LOGGER.payload.get("status") == "running":
+        RUN_LOGGER.finish("interrupted")
+
+
+atexit.register(_finalize_unfinished_run)
 
 
 def _normalizar_texto(valor: str) -> str:
@@ -201,6 +259,7 @@ def _salvar_lote_streaming(
     if not registros:
         return 0
 
+    started = time.perf_counter()
     if cidades_alvo:
         registros = [r for r in registros if str(r.codigo_ibge) in cidades_alvo]
     registros = _deduplicar_mais_recente(registros)
@@ -209,6 +268,7 @@ def _salvar_lote_streaming(
 
     try:
         anos = {registro.ano_referencia for registro in registros}
+        anteriores = 0
         for ano in anos:
             query = db_session.query(ValorIndicador).filter(
                 ValorIndicador.id_indicador == id_variavel,
@@ -216,15 +276,28 @@ def _salvar_lote_streaming(
             )
             if cidades_alvo:
                 query = query.filter(ValorIndicador.codigo_ibge.in_(cidades_alvo))
+            anteriores += query.count()
             query.delete(synchronize_session=False)
         db_session.bulk_save_objects(registros)
         db_session.commit()
         total = len(registros)
         print(f"✅ {id_variavel}: {total} registros salvos em lote ({origem})")
+        _log_event(
+            "indicators",
+            indicator=id_variavel,
+            status="loaded",
+            records_replaced=anteriores,
+            records_inserted=total,
+            municipalities=len({str(r.codigo_ibge) for r in registros}),
+            years=sorted(anos),
+            duration_seconds=round(time.perf_counter() - started, 3),
+            origin=origem,
+        )
         return total
     except Exception as e:
         db_session.rollback() # O nosso famoso escudo Anti-Dominó!
         print(f"❌ Lixo ignorado no lote de {id_variavel} ({origem}) - Transação protegida.")
+        _log_event("indicators", indicator=id_variavel, status="error", error=type(e).__name__, origin=origem)
         return 0
 
 
@@ -266,6 +339,7 @@ def extrair_dados_locais(
     caminho_completo = _resolver_caminho_arquivo(arquivo)
     if not caminho_completo:
         print(f"❌ {id_variavel}: Arquivo não encontrado -> {arquivo}")
+        _log_event("indicators", indicator=id_variavel, status="skipped", reason="file_not_found", configured_file=arquivo)
         return
 
     col_codigo = config.get("coluna_codigo")
@@ -283,6 +357,7 @@ def extrair_dados_locais(
     faixa_valida = config.get("faixa_valida")
 
     if not col_codigo or not col_valor or col_valor == "VERIFICAR_NO_EXCEL":
+        _log_event("indicators", indicator=id_variavel, status="skipped", reason="invalid_columns", code_column=col_codigo, value_column=col_valor)
         return
 
     try:
@@ -453,9 +528,11 @@ def extrair_dados_locais(
             )
         elif total_processado == 0:
             print(f"⚠️ {id_variavel}: nenhum registro foi processado.")
+            _log_event("indicators", indicator=id_variavel, status="empty", reason="no_rows_processed", source=str(caminho_completo))
 
     except Exception as exc:
         print(f"❌ ERRO em {id_variavel}: {exc}")
+        _log_event("indicators", indicator=id_variavel, status="error", error=type(exc).__name__, source=str(caminho_completo))
 
 
 # ==============================================================================
@@ -468,6 +545,7 @@ def extrair_dado_base_sidra(
     cidades_alvo: set[str] | None = None,
 ):
     """Bate no endpoint direto do IBGE e processa o JSON de forma nativa e rápida."""
+    started = time.perf_counter()
     print(f"🌐 Buscando {id_variavel} via API SIDRA (IBGE)...")
     try:
         max_tentativas = 3
@@ -481,7 +559,6 @@ def extrair_dado_base_sidra(
             except requests.exceptions.RequestException as e:
                 if tentativa == max_tentativas:
                     raise e # Se falhou 3 vezes, desiste de vez
-                import time
                 print(f"⚠️ Servidor lento. Aguardando 5s para tentar de novo...")
                 time.sleep(5)
 
@@ -551,13 +628,25 @@ def extrair_dado_base_sidra(
             db_session.bulk_save_objects(registros_lote)
             db_session.commit()
             print(f"✅ API {id_variavel}: {len(registros_lote)} municípios populados do IBGE!")
+            _log_event(
+                "apis",
+                api="SIDRA",
+                indicator=id_variavel,
+                status="loaded",
+                records=len(registros_lote),
+                municipalities=len({r.codigo_ibge for r in registros_lote}),
+                year=config["ano"],
+                duration_seconds=round(time.perf_counter() - started, 3),
+            )
         else:
             print(f"⚠️ API {id_variavel}: nenhuma linha válida foi extraída do payload.")
+            _log_event("apis", api="SIDRA", indicator=id_variavel, status="empty", duration_seconds=round(time.perf_counter() - started, 3))
 
     except Exception as e:
         # 4. PREVINE O EFEITO DOMINÓ: Limpa a transação com erro para as próximas APIs funcionarem
         db_session.rollback()
         print(f"❌ ERRO API {id_variavel}: {e}")
+        _log_event("apis", api="SIDRA", indicator=id_variavel, status="error", error=type(e).__name__, duration_seconds=round(time.perf_counter() - started, 3))
 
 def extrair_receita_siconfi(
     variaveis: list,
@@ -662,6 +751,7 @@ def extrair_receita_siconfi(
         print("⚠️ SICONFI respondeu, mas nenhum item financeiro foi reconhecido.")
 
     resumo = {"consultadas": len(cidades), "sucesso": sucesso, "falhas": falhas, "inseridos": inseridos}
+    _log_event("apis", api="SICONFI", status="loaded" if inseridos else "empty", **resumo)
     print(f"✅ SICONFI finalizado: {resumo}")
     return resumo
 
@@ -729,9 +819,13 @@ def deduplicar_historico_mesmo_ano(db_session):
     total_depois = db_session.execute(text("SELECT COUNT(*) FROM valores_indicadores")).scalar() or 0
     removidos = max(0, total_antes - total_depois)
     print(f"✅ Deduplicação concluída: removidos={removidos} | antes={total_antes} | depois={total_depois}")
+    _log_event("database", operation="deduplicate_history", before=total_antes, after=total_depois, removed=removidos)
+    return {"before": total_antes, "after": total_depois, "removed": removidos}
 
 
 def run():
+    global RUN_LOGGER
+    RUN_LOGGER = ETLRunLogger()
 
     inicio_etl = time.time()
 
@@ -746,6 +840,8 @@ def run():
     print("ℹ️ Semeando metadados de municípios e indicadores antes da carga de fatos.")
     metadata_status = seed_metadata()
     print(f"✅ Metadados semeados: {metadata_status}")
+    RUN_LOGGER.payload["metadata"] = metadata_status
+    RUN_LOGGER.event("metadata_seeded", **metadata_status)
 
     # ---------------------------------------------------------
     # BLOCO 1: CADASTRO DOS INDICADORES BASE
@@ -806,6 +902,7 @@ def run():
                 status = str(regras.get("status", "")).strip().lower()
                 if any(token in status for token in ("pendente", "incompleto", "nao_baixado", "implementacao")):
                     print(f"⏭️ {id_ind}: ignorado nesta carga (status={status})")
+                    _log_event("indicators", indicator=id_ind, status="skipped", reason="configured_status", configured_status=status)
                     continue
                 if regras["tipo_calculo"] == "direto":
                     config = regras["variavel_direta"]
@@ -813,12 +910,14 @@ def run():
                         extrair_dados_locais(id_ind, config, db_local)
                     else:
                         print(f"⏭️ {id_ind}: fonte externa mantida fora da carga local ({config.get('arquivo')})")
+                        _log_event("indicators", indicator=id_ind, status="skipped", reason="external_source", configured_file=config.get("arquivo"))
                 else:
                     config = regras["numerador"]
                     if config.get("arquivo") not in {"API", "NÃO_BAIXADO"}:
                         extrair_dados_locais(f"{id_ind}_numerador", config, db_local)
                     else:
                         print(f"⏭️ {id_ind}: numerador externo mantido fora da carga local ({config.get('arquivo')})")
+                        _log_event("indicators", indicator=f"{id_ind}_numerador", status="skipped", reason="external_source", configured_file=config.get("arquivo"))
         db_local.commit()
 
     print("\n--- DEDUPLICANDO HISTÓRICO E ATUALIZANDO SNAPSHOT ---")
@@ -827,15 +926,25 @@ def run():
     # BLOCO 5: LIMPEZA E SNAPSHOT TOPSIS
     # ---------------------------------------------------------
     with SessionLocal() as db_final:
-        deduplicar_historico_mesmo_ano(db_final)
+        deduplicacao = deduplicar_historico_mesmo_ano(db_final)
         atualizar_snapshot_latest(db_final)
+        snapshot_total = db_final.execute(text("SELECT COUNT(*) FROM valores_indicadores_latest")).scalar() or 0
+        historical_total = db_final.execute(text("SELECT COUNT(*) FROM valores_indicadores WHERE valor IS NOT NULL")).scalar() or 0
         db_final.commit()
+        RUN_LOGGER.payload["database"] = {
+            "historical_records_with_value": historical_total,
+            "snapshot_records": snapshot_total,
+            "deduplication": deduplicacao,
+        }
+        RUN_LOGGER.event("snapshot_updated", snapshot_records=snapshot_total, historical_records_with_value=historical_total)
 
     fim_etl = time.time() # ⏱️ PARA O CRONÔMETRO AQUI
     minutos_totais = (fim_etl - inicio_etl) / 60
 
     print(f"\n🎉 ETL FINALIZADO COM SUCESSO!")
     print(f"⏱️ Tempo total de execução: {minutos_totais:.2f} minutos")
+    RUN_LOGGER.finish("success")
+    print(f"📝 Log estruturado: {RUN_LOGGER.path}")
 
 if __name__ == "__main__":
     run()

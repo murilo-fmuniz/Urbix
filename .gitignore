@@ -45,5 +45,6 @@ build/
 backend/data/planilhas/
 backend/urbix.db
 backend/data/stage/
+backend/data/etl_runs/
 backend/urbix_postgres_backup_*.jsonl.gz
 frontend/inspect_deployment.py

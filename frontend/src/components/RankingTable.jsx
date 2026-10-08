@@ -1,6 +1,42 @@
 import React from 'react';
 import './RankingTable.css';
 
+const INDICATOR_LABELS = {
+  taxa_geracao_empregos: 'Taxa de Geração de Empregos',
+  orcamento_per_capita: 'Orçamento Per Capita',
+  despesas_capital: 'Despesas de Capital',
+  receita_propria: 'Receita Própria',
+  relacao_estudante_professor: 'Relação Estudante/Professor',
+  medidores_inteligentes_agua: 'Medidores Inteligentes de Água',
+  densidade_banda_larga: 'Densidade de Banda Larga',
+};
+
+export function formatIndicatorLabel(indicator = '') {
+  if (INDICATOR_LABELS[indicator]) return INDICATOR_LABELS[indicator];
+
+  return indicator
+    .replace(/_/g, ' ')
+    .replace(/\bTic\b/gi, 'TIC')
+    .replace(/\bSnis\b/gi, 'SNIS')
+    .replace(/\bPib\b/gi, 'PIB')
+    .replace(/\bIbge\b/gi, 'IBGE')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function formatIndicatorValue(indicator, value) {
+  if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) {
+    return '—';
+  }
+
+  const number = Number(value);
+  const isCurrency = /(despesa|receita|orcamento|investimento|pib)/i.test(indicator);
+
+  return new Intl.NumberFormat('pt-BR', isCurrency
+    ? { style: 'currency', currency: 'BRL' }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  ).format(number);
+}
+
 function RankingTable({ ranking, detalhes }) {
   const getMedalEmoji = (position) => {
     const emojis = ['🥇', '🥈', '🥉'];
@@ -84,7 +120,7 @@ function RankingTable({ ranking, detalhes }) {
               <h5>Indicadores Utilizados</h5>
               <ul>
                 {detalhes.indicadores_nomes && detalhes.indicadores_nomes.map((ind, i) => (
-                  <li key={i}>{ind}</li>
+                  <li key={i}>{formatIndicatorLabel(ind)}</li>
                 ))}
               </ul>
             </div>
@@ -94,7 +130,7 @@ function RankingTable({ ranking, detalhes }) {
               <ul>
                 {detalhes.pesos && detalhes.pesos.map((peso, i) => (
                   <li key={i}>
-                    <strong>{detalhes.indicadores_nomes?.[i] || `Indicador ${i + 1}`}:</strong>{' '}
+                    <strong>{formatIndicatorLabel(detalhes.indicadores_nomes?.[i] || `indicador_${i + 1}`)}:</strong>{' '}
                     {(peso * 100).toFixed(1)}%
                   </li>
                 ))}
@@ -106,7 +142,7 @@ function RankingTable({ ranking, detalhes }) {
               <ul>
                 {detalhes.impactos && detalhes.impactos.map((impacto, i) => (
                   <li key={i}>
-                    <strong>{detalhes.indicadores_nomes?.[i] || `Indicador ${i + 1}`}:</strong>{' '}
+                    <strong>{formatIndicatorLabel(detalhes.indicadores_nomes?.[i] || `indicador_${i + 1}`)}:</strong>{' '}
                     {impacto === 1 ? '↑ Benefício' : '↓ Custo'}
                   </li>
                 ))}

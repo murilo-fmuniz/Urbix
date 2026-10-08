@@ -11,7 +11,7 @@ Atualizado em **01/10/2026**, após a execução nacional do ETL.
 - Backend publicado no Render.
 - 19 indicadores atualmente calculáveis no ranking.
 - 5.571 municípios cadastrados.
-- 130.579 registros com valor no histórico e no snapshot atual.
+- 130.381 registros com valor no histórico e no snapshot atual.
 
 Os números detalhados e a cobertura por eixo estão em `RELATORIO_AUDITORIA_ETL_IC.md`.
 
@@ -22,7 +22,7 @@ Os números detalhados e a cobertura por eixo estão em `RELATORIO_AUDITORIA_ETL
 - saneamento SNIS de água: acima de 5.500;
 - bombeiros e estrutura TIC MUNIC: acima de 5.550;
 - banda larga: 5.570;
-- SICONFI: aproximadamente 3.100 municípios;
+- SICONFI: 5.275 respostas válidas em 5.571 consultas; cobertura persistida de aproximadamente 3.000 municípios por indicador;
 - esgoto SNIS: aproximadamente 3.400 municípios.
 
 ## Indicadores que permanecem pendentes

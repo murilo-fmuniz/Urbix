@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import { formatIndicatorLabel, formatIndicatorValue } from './RankingTable';
 import './IndicatorsComparisonChart.css';
 
 ChartJS.register(
@@ -21,128 +22,135 @@ ChartJS.register(
 );
 
 const AXES_MAPPING = {
-  "Economia & Governança": ["taxa_desemprego", "taxa_endividamento", "despesas_capital", "receita_propria", "orcamento_per_capita", "mulheres_eleitas", "condenacoes_corrupcao", "participacao_eleitoral"],
-  "Urbanismo & Segurança": ["moradias_inadequadas", "sem_teto", "bombeiros", "mortes_incendio", "agentes_policia", "homicidios", "acidentes_industriais"],
-  "Educação & Inovação": ["relacao_estudante_professor", "ideb_iniciais", "sobrevivencia_negocios", "empregos_tic", "graduados_stem"],
-  "Sustentabilidade": ["energia_residuos", "iluminacao_telegestao", "medidores_inteligentes_energia", "edificios_verdes", "monitoramento_ar", "servicos_urbanos_online", "prontuario_eletronico", "consultas_remotas", "medidores_inteligentes_agua", "areas_cobertas_cameras", "lixeiras_sensores", "semaforos_inteligentes", "frota_onibus_zero_emissao", "escolas_conectadas_telegestao", "seguros_ameacas", "empregos_informais"],
-  "Resiliência": ["escolas_plano_emergencia", "populacao_treinada_emergencia", "hospitais_gerador_backup", "seguro_saude_basico", "taxa_imunizacao", "abrigos_emergencia", "edificios_vulneraveis", "rotas_evacuacao", "reservas_alimentos_72h", "mapas_ameacas_publicos", "mortalidade_desastres", "pessoas_afetadas_desastres", "perdas_desastres_pib", "danos_infraestrutura"],
-  "Conectividade": ["densidade_banda_larga"]
+  'Economia & Governança': [
+    'taxa_geracao_empregos',
+    'taxa_desemprego',
+    'despesas_capital',
+    'receita_propria',
+    'orcamento_per_capita',
+  ],
+  'Sociedade & Segurança': ['bombeiros', 'agentes_policia', 'homicidios', 'sem_teto'],
+  'Educação & Inovação': ['relacao_estudante_professor', 'ideb_iniciais', 'empregos_tic'],
+  'Sustentabilidade & Smart City': [
+    'estrutura_tic_municipal',
+    'servicos_informativos_municipio',
+    'canal_telefonico_municipal',
+    'medidores_inteligentes_agua',
+    'atendimento_agua_snis',
+    'atendimento_esgoto_snis',
+    'perdas_distribuicao_agua_snis',
+    'coleta_esgoto_snis',
+    'tratamento_esgoto_snis',
+    'investimento_saneamento_snis',
+    'despesa_saneamento_snis',
+  ],
+  Resiliência: ['abrigos_emergencia', 'rotas_evacuacao', 'mapas_ameacas_publicos'],
+  Conectividade: ['densidade_banda_larga'],
 };
 
-// Termos que indicam custo (quanto maior, pior)
-const TERMOS_NEGATIVOS = ["desemprego", "endividamento", "homicidios", "mortes", "inadequadas", "sem_teto", "acidentes", "corrupcao", "mortalidade", "afetadas", "perdas", "danos"];
+const TERMOS_NEGATIVOS = [
+  'desemprego', 'endividamento', 'homicidios', 'mortes', 'inadequadas',
+  'sem_teto', 'acidentes', 'corrupcao', 'mortalidade', 'afetadas',
+  'perdas', 'danos',
+];
+
+const COLORS = [
+  { border: 'rgba(37, 99, 235, 1)', background: 'rgba(37, 99, 235, 0.18)' },
+  { border: 'rgba(220, 38, 38, 1)', background: 'rgba(220, 38, 38, 0.18)' },
+  { border: 'rgba(22, 163, 74, 1)', background: 'rgba(22, 163, 74, 0.18)' },
+  { border: 'rgba(217, 119, 6, 1)', background: 'rgba(217, 119, 6, 0.18)' },
+];
+
+function isNumber(value) {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+}
 
 function IndicatorsComparisonChart({ cidades, matrizDecisao, indicadores }) {
-  
-  const chartDataPerCity = useMemo(() => {
-    if (!cidades || !matrizDecisao || !indicadores) return null;
+  const chartData = useMemo(() => {
+    if (!cidades?.length || !matrizDecisao?.length || !indicadores?.length) return null;
 
-    // 1. Filtra Eixos que possuem dados
-    const activeAxes = Object.entries(AXES_MAPPING).filter(([_, axisIndicators]) => {
-      return axisIndicators.some(ind => indicadores.includes(ind));
-    });
+    const activeAxes = Object.entries(AXES_MAPPING).filter(([, axisIndicators]) =>
+      axisIndicators.some((indicator) => indicadores.includes(indicator))
+    );
 
-    if (activeAxes.length === 0) return null;
+    if (!activeAxes.length) return null;
 
-    // 2. Acha Máximo e Mínimo Global para cada indicador (para a escala de 0 a 100)
-    const statsPerIndicator = {};
-    indicadores.forEach(ind => {
-      const vals = cidades.map((_, i) => Number(matrizDecisao[i]?.[ind]) || 0);
-      statsPerIndicator[ind] = {
-        min: Math.min(...vals),
-        max: Math.max(...vals)
-      };
-    });
+    const axisScores = cidades.map(() => ({}));
 
-    const axisScoresPerCity = cidades.map(() => ({}));
+    activeAxes.forEach(([axisName, axisIndicators]) => {
+      const availableIndicators = axisIndicators.filter((indicator) => indicadores.includes(indicator));
 
-    // 3. Normalização (0 a 100%)
-    cidades.forEach((_, cityIdx) => {
-      activeAxes.forEach(([axisName, axisIndicators]) => {
-        let totalScore = 0;
-        let count = 0;
+      cidades.forEach((_, cityIndex) => {
+        const normalizedValues = availableIndicators
+          .map((indicator) => {
+            const values = cidades
+              .map((__, index) => matrizDecisao[index]?.[indicator])
+              .filter(isNumber)
+              .map(Number);
+            const value = matrizDecisao[cityIndex]?.[indicator];
+            if (!isNumber(value) || !values.length) return null;
 
-        axisIndicators.forEach(ind => {
-          if (indicadores.includes(ind)) {
-            const rawVal = Number(matrizDecisao[cityIdx]?.[ind]) || 0;
-            const { min, max } = statsPerIndicator[ind];
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            let normalized = max === min ? 1 : (Number(value) - min) / (max - min);
 
-            let normalized = 0;
-            if (max === min) {
-              normalized = 1; // Empate
-            } else {
-              normalized = (rawVal - min) / (max - min);
+            if (TERMOS_NEGATIVOS.some((term) => indicator.includes(term))) {
+              normalized = 1 - normalized;
             }
+            return normalized * 100;
+          })
+          .filter((value) => value !== null);
 
-            // Inverte nota se for custo (ex: desemprego alto = nota baixa)
-            if (TERMOS_NEGATIVOS.some(termo => ind.includes(termo))) {
-              normalized = 1 - normalized; 
-            }
-
-            // Para gráficos separados, o valor real de 0 a 100 fica ótimo
-            totalScore += (normalized * 100);
-            count++;
-          }
-        });
-
-        axisScoresPerCity[cityIdx][axisName] = count > 0 ? (totalScore / count) : 0;
+        axisScores[cityIndex][axisName] = normalizedValues.length
+          ? normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length
+          : 0;
       });
     });
 
-    const axesNames = activeAxes.map(([name]) => name);
-    
-    // Paleta de Cores (Uma cor para cada cidade)
-    const colors = [
-      { border: "rgba(59, 130, 246, 1)", bg: "rgba(59, 130, 246, 0.3)" }, // Azul (Cidade 1)
-      { border: "rgba(239, 68, 68, 1)", bg: "rgba(239, 68, 68, 0.3)" },   // Vermelho (Cidade 2)
-      { border: "rgba(34, 197, 94, 1)", bg: "rgba(34, 197, 94, 0.3)" },   // Verde (Cidade 3)
-      { border: "rgba(245, 158, 11, 1)", bg: "rgba(245, 158, 11, 0.3)" }  // Laranja (Cidade 4)
-    ];
-
-    // 4. Monta um dataset isolado para cada cidade
-    return cidades.map((cidade, idx) => {
-      return {
-        cidadeName: cidade,
-        chartData: {
-          labels: axesNames,
-          datasets: [{
-            label: cidade,
-            data: axesNames.map(axis => axisScoresPerCity[idx][axis]),
-            borderColor: colors[idx % colors.length].border,
-            backgroundColor: colors[idx % colors.length].bg,
-            pointBackgroundColor: colors[idx % colors.length].border,
-            pointBorderColor: '#fff',
-            pointHoverRadius: 6,
-            borderWidth: 2,
-            fill: true,
-          }]
-        }
-      };
-    });
+    return {
+      labels: activeAxes.map(([axisName]) => axisName),
+      datasets: cidades.map((cidade, index) => ({
+        label: cidade,
+        data: activeAxes.map(([axisName]) => axisScores[index][axisName]),
+        borderColor: COLORS[index % COLORS.length].border,
+        backgroundColor: COLORS[index % COLORS.length].background,
+        pointBackgroundColor: COLORS[index % COLORS.length].border,
+        pointBorderColor: '#fff',
+        pointHoverRadius: 6,
+        borderWidth: 2,
+        fill: true,
+      })),
+    };
   }, [cidades, matrizDecisao, indicadores]);
 
-  if (!chartDataPerCity) return <div className="no-data">📊 Dados insuficientes para montar o Radar.</div>;
+  if (!chartData) {
+    return <div className="no-data">📊 Dados insuficientes para montar o Radar.</div>;
+  }
 
-  const baseOptions = {
+  const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }, // Esconde a legenda pois o título já diz a cidade
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: { usePointStyle: true, padding: 16 },
+      },
       tooltip: {
         callbacks: {
-          label: (context) => `Score: ${(context.raw).toFixed(1)} / 100`
-        }
-      }
+          label: (context) => `${context.dataset.label}: ${Number(context.raw).toFixed(1)} / 100`,
+        },
+      },
     },
     scales: {
       r: {
         min: 0,
-        max: 100, // Trava o gráfico rigorosamente de 0 a 100
+        max: 100,
         beginAtZero: true,
         ticks: { stepSize: 25, display: false },
-        pointLabels: { font: { size: 12, weight: "600" }, color: '#475569' }
-      }
-    }
+        pointLabels: { font: { size: 12, weight: '600' }, color: '#475569' },
+      },
+    },
   };
 
   return (
@@ -150,48 +158,39 @@ function IndicatorsComparisonChart({ cidades, matrizDecisao, indicadores }) {
       <div className="bg-slate-50 border-l-4 border-slate-500 p-4 mb-6 rounded-r shadow-sm">
         <h4 className="font-bold text-slate-800 mb-1">ℹ️ Desempenho Relativo por Eixo (0 a 100)</h4>
         <p className="text-sm text-slate-600">
-          Cada cidade possui seu próprio gráfico de atributos. A escala de 0 a 100 representa o desempenho relativo entre as cidades comparadas. Indicadores de impacto negativo (como desemprego ou sem-teto) foram invertidos.
+          Um único radar compara os municípios selecionados. Cada linha representa uma cidade e cada eixo resume os indicadores disponíveis naquele tema.
         </p>
       </div>
 
-      {/* GRID RESPONSIVO PARA OS GRÁFICOS SEPARADOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-        {chartDataPerCity.map((data, index) => (
-          <div key={index} className="bg-white p-6 border rounded-xl shadow-sm flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-slate-800 mb-4">{data.cidadeName}</h3>
-            <div style={{ height: '400px', width: '100%' }}>
-              <Radar data={data.chartData} options={baseOptions} />
-            </div>
-          </div>
-        ))}
+      <div className="bg-white p-6 border rounded-xl shadow-sm mb-10">
+        <div style={{ height: '520px', width: '100%' }}>
+          <Radar data={chartData} options={options} />
+        </div>
       </div>
 
       <div className="mt-8 border-t-2 border-emerald-300 pt-6">
-        <h4 className="text-xl font-bold text-gray-800 mb-4">📋 Consulta Rápida: Valores Brutos Extraídos</h4>
+        <h4 className="text-xl font-bold text-gray-800 mb-4">📋 Valores dos Indicadores</h4>
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border rounded-lg shadow-sm">
             <thead className="bg-slate-100">
               <tr>
-                <th className="px-4 py-3 border-b border-r text-left font-semibold text-slate-700">Indicador Validado</th>
-                {cidades.map((cidade, i) => (
-                  <th key={i} className="px-4 py-3 border-b text-right font-semibold text-emerald-800">{cidade}</th>
+                <th className="px-4 py-3 border-b border-r text-left font-semibold text-slate-700">Indicador</th>
+                {cidades.map((cidade) => (
+                  <th key={cidade} className="px-4 py-3 border-b text-right font-semibold text-emerald-800">{cidade}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {indicadores.map((ind, i) => (
-                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-2 border-b border-r font-medium text-slate-600 capitalize">
-                    {ind.replace(/_/g, ' ')}
+              {indicadores.map((indicator) => (
+                <tr key={indicator} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-2 border-b border-r font-medium text-slate-600">
+                    {formatIndicatorLabel(indicator)}
                   </td>
-                  {cidades.map((_, cidadeIdx) => {
-                    const val = Number(matrizDecisao[cidadeIdx]?.[ind]) || 0;
-                    return (
-                      <td key={cidadeIdx} className="px-4 py-2 border-b text-right font-mono text-sm text-slate-800">
-                        {val.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
-                      </td>
-                    );
-                  })}
+                  {cidades.map((_, cityIndex) => (
+                    <td key={`${indicator}-${cityIndex}`} className="px-4 py-2 border-b text-right font-mono text-sm text-slate-800">
+                      {formatIndicatorValue(indicator, matrizDecisao[cityIndex]?.[indicator])}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

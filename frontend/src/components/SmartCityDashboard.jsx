@@ -11,6 +11,7 @@ import {
   Shield,
 } from 'lucide-react';
 import IndicatorsComparisonChart from './IndicatorsComparisonChart';
+import { formatIndicatorLabel } from './RankingTable';
 import { getHybridRanking, getIndicadores } from '../services/api';
 import { INDICADORES_CONFIG, INDICADORES_INICIAL } from './ManualDataForm';
 import { getMunicipalitiesByNames } from '../data/ibgeCatalog';
@@ -434,7 +435,7 @@ export default function SmartCityDashboard() {
                   <h4 className="font-semibold text-lg text-gray-700 mb-3">Indicadores Utilizados:</h4>
                   <ul className="list-disc list-inside space-y-1 text-gray-600">
                     {detalhes.indicadores.map((ind, i) => (
-                      <li key={i}>{ind}</li>
+                      <li key={i}>{formatIndicatorLabel(ind)}</li>
                     ))}
                   </ul>
                 </div>
@@ -443,11 +444,11 @@ export default function SmartCityDashboard() {
               {detalhes.pesos && detalhes.pesos.length > 0 && (
                 <div className="mb-6">
                   <h4 className="font-semibold text-lg text-gray-700 mb-3">Pesos:</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 items-stretch">
                     {detalhes.pesos.map((peso, i) => (
-                      <div key={i} className="bg-orange-50 p-3 rounded border-l-4 border-orange-500">
+                      <div key={i} className="h-full bg-orange-50 p-3 rounded border-l-4 border-orange-500 flex flex-col">
                         <p className="text-sm text-gray-600">
-                          {detalhes.indicadores?.[i] || `Indicador ${i + 1}`}
+                          {formatIndicatorLabel(detalhes.indicadores?.[i] || `indicador_${i + 1}`)}
                         </p>
                         <p className="text-lg font-bold text-orange-600">{(peso * 100).toFixed(1)}%</p>
                       </div>
@@ -459,11 +460,11 @@ export default function SmartCityDashboard() {
               {detalhes.impactos && detalhes.impactos.length > 0 && (
                 <div className="mb-6">
                   <h4 className="font-semibold text-lg text-gray-700 mb-3">Impactos:</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 items-stretch">
                     {detalhes.impactos.map((impacto, i) => (
-                      <div key={i} className="bg-purple-50 p-3 rounded border-l-4 border-purple-500">
+                      <div key={i} className="h-full bg-purple-50 p-3 rounded border-l-4 border-purple-500 flex flex-col">
                         <p className="text-sm text-gray-600">
-                          {detalhes.indicadores?.[i] || `Indicador ${i + 1}`}
+                          {formatIndicatorLabel(detalhes.indicadores?.[i] || `indicador_${i + 1}`)}
                         </p>
                         <p className="text-lg font-bold text-purple-600">
                           {impacto === 1 ? '✅ Benefício' : '⚠️ Custo'}
@@ -475,8 +476,8 @@ export default function SmartCityDashboard() {
               )}
 
               {detalhes.distancia_para_positiva && (
-                <div className="grid grid-cols-2 gap-6 mt-6 pt-6 border-t">
-                  <div className="bg-green-50 p-4 rounded">
+                  <div className="grid grid-cols-2 gap-6 mt-6 pt-6 border-t items-stretch">
+                  <div className="h-full bg-green-50 p-4 rounded">
                     <h5 className="font-semibold text-green-800 mb-2">Distância Ideal Positiva</h5>
                     <p className="text-xs text-gray-600">
                       {Array.isArray(detalhes.distancia_para_positiva)
@@ -484,7 +485,7 @@ export default function SmartCityDashboard() {
                         : JSON.stringify(detalhes.distancia_para_positiva)}
                     </p>
                   </div>
-                  <div className="bg-red-50 p-4 rounded">
+                  <div className="h-full bg-red-50 p-4 rounded">
                     <h5 className="font-semibold text-red-800 mb-2">Distância Ideal Negativa</h5>
                     <p className="text-xs text-gray-600">
                       {Array.isArray(detalhes.distancia_para_negativa)
